@@ -1,6 +1,6 @@
 # FriendCircle
 
-A working Next.js + Express social platform based on `FriendCircle/prompt.md`.
+A working Next.js + Express social platform.
 
 ## Run locally
 
