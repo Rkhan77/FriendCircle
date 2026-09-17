@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_USER: friendcircle
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: friendcircle
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U friendcircle"]
+      interval: 5s
+      retries: 10
+  verification:
+    build: ./services/verification
+    environment:
+      FACE_VERIFIER_TOKEN: ${FACE_VERIFIER_TOKEN:?Set FACE_VERIFIER_TOKEN}
+    ports:
+      - "127.0.0.1:8001:8001"
+    read_only: true
+    tmpfs:
+      - /tmp
+volumes:
+  postgres-data:

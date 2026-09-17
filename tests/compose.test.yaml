@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_USER: friendcircle
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: friendcircle
+    ports:
+      - "127.0.0.1:15437:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+  verification:
+    build: ../services/verification
+    environment:
+      FACE_VERIFIER_TOKEN: ${FACE_VERIFIER_TOKEN:?required}
+    ports:
+      - "127.0.0.1:18017:8001"
+    read_only: true
+    tmpfs:
+      - /tmp

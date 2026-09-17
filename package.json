@@ -1,0 +1,43 @@
+{
+  "name": "friendcircle",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "predev": "node scripts/copy-maplibre-worker.mjs",
+    "dev": "NODE_ENV=development tsx server/index.ts",
+    "prebuild": "node scripts/copy-maplibre-worker.mjs",
+    "build": "npm run typecheck && next build",
+    "build:pages": "node --import tsx scripts/refresh-pages-fixture.ts && NEXT_PUBLIC_PAGES_PREVIEW=1 npm run build",
+    "start": "NODE_ENV=production tsx server/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "format": "prettier --write app components lib server tests docs README.md next.config.ts tsconfig.json"
+  },
+  "dependencies": {
+    "@next/env": "^16.3.5",
+    "express": "^5.1.0",
+    "jose": "^6.1.0",
+    "lucide-react": "^0.468.0",
+    "maplibre-gl": "^6.10.0",
+    "multer": "^2.0.2",
+    "next": "^16.3.5",
+    "pg": "^8.16.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "tsx": "^4.20.5",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.18.0",
+    "@types/pg": "^8.15.5",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.2"
+  },
+  "type": "module"
+}

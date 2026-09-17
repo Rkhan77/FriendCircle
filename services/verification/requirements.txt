@@ -1,0 +1,6 @@
+fastapi>=0.115,<1
+uvicorn>=0.34,<1
+python-multipart>=0.0.20,<1
+mediapipe>=0.10.21,<0.11
+pillow>=11.1,<13
+numpy>=1.26,<3
