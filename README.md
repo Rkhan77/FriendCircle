@@ -13,5 +13,3 @@ FriendCircle helps people find their local circle and make plans to meet face to
 - **Show up.** Time spent together earns chat characters and social credits. Your circle can also unlock achievements by connecting across suburbs.
 - **Eat together.** Catch Up shows restaurant offers within 5 km on the map. Bring more friends to unlock the next tier: 10% for two diners, 15% for three, and 20% for four or more when an approved offer is available.
 - **Your profile, your call.** Add a photo, bio and interests, and choose public or private visibility.
-
-ml) runs `build:pages` on pushes to `main` and publishes the static `out` directory. The app uses Next.js, MapLibre GL, TypeScript, and a custom Express backend for local/live features.
