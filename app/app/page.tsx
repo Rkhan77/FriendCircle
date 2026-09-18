@@ -188,7 +188,7 @@ export default function Home() {
     [openRestaurantId, setOpenRestaurantId] = useState<string | null>(null),
     [pendingTarget, setPendingTarget] = useState(""),
     [modal, setModal] = useState<
-      "add" | "status" | "report" | "block" | null
+      "add" | "status" | "report" | "block" | "publicProfiles" | null
     >(null),
     [toast, setToast] = useState(""),
     [presenceAlert, setPresenceAlert] = useState(false),
@@ -506,6 +506,9 @@ export default function Home() {
           f.activity === filter),
     ) || [];
   const nearby = data?.friends.filter((f) => f.nearby) || [];
+  const nearbyPublicProfiles = (data?.publicProfiles || []).filter(
+    (profile) => profile.nearby && profile.visibility === "public",
+  );
   const conversations = (data?.conversationIds || [])
     .map((id) =>
       [...(data?.friends || []), ...(data?.chatContacts || [])].find(
@@ -522,7 +525,9 @@ export default function Home() {
         <div className="auth-card">
           <BrandLogo />
           <h1>Opening sign in…</h1>
-          <p><a href={appHref("/auth")}>Continue to account access</a></p>
+          <p>
+            <a href={appHref("/auth")}>Continue to account access</a>
+          </p>
         </div>
         {toast && (
           <div className="toast" role="status">
@@ -648,7 +653,8 @@ export default function Home() {
       <div className="workspace">
         {process.env.NEXT_PUBLIC_PAGES_PREVIEW === "1" && (
           <div className="pages-preview-note" role="note">
-            Preview with fictional people and places · Live chat, rewards, sign-in, and redemption need the local app
+            Preview with fictional people and places · Live chat, rewards,
+            sign-in, and redemption need the local app
           </div>
         )}
         <header className="header">
@@ -1205,52 +1211,38 @@ export default function Home() {
                     </div>
                   )}
                   {view === "map" && data.suburb && (
-                    <div className="public-list map-public-list">
-                      <div className="map-public-heading">
-                        <div>
-                          <h3>Public profiles in {data.suburb.name}</h3>
-                          <p>People in your suburb who share your interests.</p>
-                        </div>
-                        <span>
-                          {data.publicProfiles?.filter(
-                            (f) => f.nearby && f.visibility === "public",
-                          ).length || 0}{" "}
-                          nearby
+                    <div className="map-public-trigger-wrap">
+                      <button
+                        className="map-public-trigger"
+                        aria-haspopup="dialog"
+                        onClick={() => {
+                          setPublicProfileAlert(false);
+                          setModal("publicProfiles");
+                        }}
+                      >
+                        <span className="map-public-trigger-icon">
+                          <Users size={18} />
                         </span>
-                      </div>
-                      <div className="map-public-profiles">
-                        {data.publicProfiles?.filter(
-                          (f) => f.nearby && f.visibility === "public",
-                        ).length ? (
-                          data.publicProfiles
-                            .filter(
-                              (f) => f.nearby && f.visibility === "public",
-                            )
-                            .map((f) => (
-                              <button
-                                className="friend-row"
-                                key={f.id}
-                                onClick={() => setSelected(f)}
-                              >
-                                <Avatar person={f} size="small" />
-                                <div className="friend-info">
-                                  <strong>{f.name}</strong>
-                                  <small>
-                                    {f.commonTraits?.length
-                                      ? `In common: ${f.commonTraits.join(", ")}`
-                                      : data.suburb?.name}
-                                  </small>
-                                </div>
-                                <ArrowUpRight size={14} />
-                              </button>
-                            ))
-                        ) : (
-                          <p className="map-public-empty">
-                            No shared-interest public profiles in this suburb
-                            yet.
-                          </p>
+                        <span className="map-public-trigger-copy">
+                          <strong>Public profiles in {data.suburb.name}</strong>
+                          <small>
+                            See people nearby who share your interests
+                          </small>
+                        </span>
+                        <span
+                          className="map-public-count"
+                          aria-label={`${nearbyPublicProfiles.length} public profiles in this area`}
+                        >
+                          {nearbyPublicProfiles.length}
+                        </span>
+                        {publicProfileAlert && (
+                          <span
+                            className="map-public-new"
+                            aria-label="New profiles"
+                          />
                         )}
-                      </div>
+                        <ArrowUpRight size={17} aria-hidden="true" />
+                      </button>
                     </div>
                   )}
                 </section>
@@ -1930,6 +1922,45 @@ export default function Home() {
           </footer>
         )}
       </div>
+      {modal === "publicProfiles" && (
+        <Dialog
+          title={`Public profiles in ${data.suburb?.name || "your area"}`}
+          close={() => setModal(null)}
+        >
+          <p className="public-profiles-intro">
+            People in your suburb who share your interests.
+          </p>
+          {nearbyPublicProfiles.length ? (
+            <div className="public-profiles-dialog-list">
+              {nearbyPublicProfiles.map((profile) => (
+                <button
+                  className="friend-row"
+                  key={profile.id}
+                  onClick={() => {
+                    setModal(null);
+                    setSelected(profile);
+                  }}
+                >
+                  <Avatar person={profile} size="small" />
+                  <span className="friend-info">
+                    <strong>{profile.name}</strong>
+                    <small>
+                      {profile.commonTraits?.length
+                        ? `In common: ${profile.commonTraits.join(", ")}`
+                        : data.suburb?.name}
+                    </small>
+                  </span>
+                  <ArrowUpRight size={14} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="map-public-empty">
+              No shared-interest public profiles in this suburb yet.
+            </p>
+          )}
+        </Dialog>
+      )}
       {selected && (
         <Dialog
           title={

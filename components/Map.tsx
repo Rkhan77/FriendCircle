@@ -1,6 +1,14 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Minus, Plus, Navigation, Search, Utensils, Ticket, X } from "lucide-react";
+import {
+  Minus,
+  Plus,
+  Navigation,
+  Search,
+  Utensils,
+  Ticket,
+  X,
+} from "lucide-react";
 import type { Map as LibreMap, Marker, GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
@@ -564,11 +572,16 @@ export default function MapView({
   const selectedVoucher = vouchers.find((v) =>
     selectedInvites.some((i) => i.voucherId === v.id),
   );
-  const recommended = recommendedFriendIds.filter((id) => friends.some((friend) => friend.id === id));
+  const recommended = recommendedFriendIds.filter((id) =>
+    friends.some((friend) => friend.id === id),
+  );
   const matchingFriends = friends
-    .filter((friend) => friend.name.toLowerCase().includes(inviteQuery.trim().toLowerCase()))
+    .filter((friend) =>
+      friend.name.toLowerCase().includes(inviteQuery.trim().toLowerCase()),
+    )
     .sort((a, b) => {
-      const aRank = recommended.indexOf(a.id), bRank = recommended.indexOf(b.id);
+      const aRank = recommended.indexOf(a.id),
+        bRank = recommended.indexOf(b.id);
       if (aRank >= 0 && bRank >= 0) return aRank - bRank;
       if (aRank >= 0) return -1;
       if (bRank >= 0) return 1;
@@ -820,19 +833,93 @@ export default function MapView({
         />
       )}
       {inviteOpen && selectedOffer && (
-        <dialog ref={inviteDialog} className="meal-invite-dialog" aria-label={`Invite friends to ${selectedOffer.restaurantName}`} onCancel={() => setInviteOpen(false)}>
-          <div className="dialog-head"><div><h2>Invite friends to a meal</h2><small>{selectedOffer.restaurantName} · choose up to seven friends</small></div><button className="icon-button" aria-label="Close meal invitation" onClick={() => setInviteOpen(false)}><X size={18} /></button></div>
-          <label className="meal-invite-search"><Search size={17} /><input autoFocus value={inviteQuery} onChange={(event) => setInviteQuery(event.target.value)} placeholder="Search your circle" aria-label="Search friends to invite" /></label>
-          {!inviteQuery && recommended.length > 0 && <p className="meal-invite-section-label">Recommended from your recent interactions</p>}
+        <dialog
+          ref={inviteDialog}
+          className="meal-invite-dialog"
+          aria-label={`Invite friends to ${selectedOffer.restaurantName}`}
+          onCancel={() => setInviteOpen(false)}
+        >
+          <div className="dialog-head">
+            <div>
+              <h2>Invite friends to a meal</h2>
+              <small>
+                {selectedOffer.restaurantName} · choose up to seven friends
+              </small>
+            </div>
+            <button
+              className="icon-button"
+              aria-label="Close meal invitation"
+              onClick={() => setInviteOpen(false)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <label className="meal-invite-search">
+            <Search size={17} />
+            <input
+              autoFocus
+              value={inviteQuery}
+              onChange={(event) => setInviteQuery(event.target.value)}
+              placeholder="Search your circle"
+              aria-label="Search friends to invite"
+            />
+          </label>
+          {!inviteQuery && recommended.length > 0 && (
+            <p className="meal-invite-section-label">
+              Your circle · recommended friends first
+            </p>
+          )}
           <div className="meal-invite-results">
-            {matchingFriends.map((friend, index) => <label key={friend.id} className="meal-invite-row">
-              <input type="checkbox" checked={inviteIds.includes(friend.id)} disabled={!inviteIds.includes(friend.id) && inviteIds.length >= 7} onChange={(event) => setInviteIds((ids) => event.target.checked ? [...ids, friend.id] : ids.filter((id) => id !== friend.id))} />
-              <Avatar person={friend} size="small" /><span><strong>{friend.name}</strong>{recommended.includes(friend.id) && <small>Recommended</small>}</span>
-              {!inviteQuery && recommended.length > 0 && index === recommended.length - 1 && <span className="meal-invite-divider" aria-hidden="true" />}
-            </label>)}
+            {matchingFriends.map((friend) => (
+              <label
+                key={friend.id}
+                className={`meal-invite-tile${inviteIds.includes(friend.id) ? " selected" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  aria-label={`Invite ${friend.name}`}
+                  checked={inviteIds.includes(friend.id)}
+                  disabled={
+                    !inviteIds.includes(friend.id) && inviteIds.length >= 7
+                  }
+                  onChange={(event) =>
+                    setInviteIds((ids) =>
+                      event.target.checked
+                        ? [...ids, friend.id]
+                        : ids.filter((id) => id !== friend.id),
+                    )
+                  }
+                />
+                <Avatar person={friend} size="small" />
+                <span>
+                  <strong>{friend.name}</strong>
+                  {recommended.includes(friend.id) && (
+                    <small>Recommended</small>
+                  )}
+                </span>
+              </label>
+            ))}
             {!matchingFriends.length && <p>No friends match that search.</p>}
           </div>
-          <div className="meal-invite-footer"><small>{inviteIds.length} of 7 selected{demo ? " · Demo invitations cannot be redeemed" : ""}</small><button className="primary" disabled={busy || inviteIds.length === 0} onClick={async () => { if (await onCreateGathering(selectedOffer.id, inviteIds)) { setInviteOpen(false); setInviteIds([]); setInviteQuery(""); } }}>Send meal invite</button></div>
+          <div className="meal-invite-footer">
+            <small>
+              {inviteIds.length} of 7 selected
+              {demo ? " · Demo invitations cannot be redeemed" : ""}
+            </small>
+            <button
+              className="primary"
+              disabled={busy || inviteIds.length === 0}
+              onClick={async () => {
+                if (await onCreateGathering(selectedOffer.id, inviteIds)) {
+                  setInviteOpen(false);
+                  setInviteIds([]);
+                  setInviteQuery("");
+                }
+              }}
+            >
+              Send meal invite
+            </button>
+          </div>
         </dialog>
       )}
       {mode === "restaurants" && (
