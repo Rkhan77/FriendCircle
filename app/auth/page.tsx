@@ -33,7 +33,7 @@ export default function AccountAccess() {
     const password = String(new FormData(event.currentTarget).get("password") || "");
     run(async () => {
       await api("/login", { method: "POST", body: JSON.stringify({ ...identity, password }) });
-      window.location.assign(appHref("/"));
+      window.location.assign(appHref("/app"));
     });
   }
   function submitSignup(event: FormEvent<HTMLFormElement>) {
@@ -45,7 +45,7 @@ export default function AccountAccess() {
         body: JSON.stringify({ ...identity, password: String(form.get("password")), adult: form.get("adult") === "on" }),
       });
       if (result.demo) return setNotice(result.message || "Open the sample account to explore.");
-      if (result.signedIn) return window.location.assign(appHref("/"));
+      if (result.signedIn) return window.location.assign(appHref("/app"));
       setStep(phone ? "code" : "sent");
       setNotice(phone ? "Enter the code sent to your phone." : "Check your email for a confirmation link.");
     });
@@ -63,7 +63,7 @@ export default function AccountAccess() {
     const token = String(new FormData(event.currentTarget).get("token") || "");
     run(async () => {
       await api("/auth/verify-code", { method: "POST", body: JSON.stringify({ ...identity, token }) });
-      window.location.assign(appHref("/"));
+      window.location.assign(appHref("/app"));
     });
   }
   return <main className="auth-page access-page"><div className="auth-card">
@@ -79,7 +79,7 @@ export default function AccountAccess() {
     {step === "signup" && <form onSubmit={submitSignup}><label>Create a password<input name="password" type="password" required minLength={8} autoComplete="new-password" /></label><label className="access-check"><input type="checkbox" name="adult" required /> I confirm I am at least 18.</label><button className="primary" disabled={busy}>{busy ? "Creating…" : "Create account"}<ArrowRight size={17} /></button><button className="access-text-button" type="button" onClick={() => setStep("password")}>I already have an account</button></form>}
     {step === "code" && <form onSubmit={verifyCode}><label>One-time code<input name="token" inputMode="numeric" autoComplete="one-time-code" required minLength={4} maxLength={12} /></label><button className="primary" disabled={busy}>Verify code <ArrowRight size={17} /></button><button className="access-text-button" type="button" disabled={busy} onClick={requestCode}>Send another code</button></form>}
     {step !== "identifier" && <button className="access-back" onClick={() => { setStep("identifier"); setNotice(""); }}><ArrowLeft size={15} /> Use another email or phone</button>}
-    {demo && <a className="access-demo-link" href={appHref("/")}>Open sample account</a>}
+    {demo && <a className="access-demo-link" href={appHref("/app")}>Open sample account</a>}
     <div className="access-footer"><ShieldCheck size={15} /> Restaurant partner? <a href={appHref("/partner/login")}>Partner sign in</a></div>
   </div></main>;
 }

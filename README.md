@@ -84,6 +84,8 @@ Earn badges for exploring new suburbs, hosting local events, and growing your so
 
 Explore the real FriendCircle interface at: **https://Rkhan77.github.io/FriendCircle/**
 
+The home page introduces the platform. Choose **Sign up** or **Log in** to open account access, or **Explore the demo** to open the sample member workspace at `/app`.
+
 *Note: GitHub Pages shows static demo data only. Features requiring the Express API, Socket.IO, sign-in, chat, meeting rewards, and admin tools work locally.*
 
 ---

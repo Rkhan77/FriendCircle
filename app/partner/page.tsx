@@ -101,7 +101,7 @@ export default function PartnerDashboard() {
   }
   const venue = data?.restaurants.find((restaurant) => restaurant.id === selectedId);
   return <main className="platform-dashboard partner-dashboard">
-    <header className="admin-topbar"><div className="admin-topbrand"><Store size={24} /> friendcircle <b>partner</b></div><div><a href={appHref("/")}><ArrowLeft size={16} /> App</a><button onClick={async () => { await api("/logout", { method: "POST" }); window.location.assign(appHref("/partner/login")); }}><LogOut size={16} /> Sign out</button></div></header>
+    <header className="admin-topbar"><div className="admin-topbrand"><Store size={24} /> friendcircle <b>partner</b></div><div><a href={appHref("/app")}><ArrowLeft size={16} /> App</a><button onClick={async () => { await api("/logout", { method: "POST" }); window.location.assign(appHref("/partner/login")); }}><LogOut size={16} /> Sign out</button></div></header>
     <div className="admin-body"><div className="admin-intro"><small>RESTAURANT PARTNER SPACE</small><h1>Your restaurant, your offers.</h1><p>Keep contact details current and plan discounts for future catch-ups.</p></div>
       {data?.demo && <div className="admin-demo-note">Local partner preview · offers are fictional and cannot be redeemed for a real discount.</div>}
       {error && <div className="admin-error" role="alert">{error}</div>}
