@@ -10,15 +10,13 @@ import {
   UsersRound,
 } from "lucide-react";
 import { appHref } from "@/lib/paths";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function Home() {
   return (
     <main className="home-screen">
       <header className="home-header">
-        <a className="home-brand" href={appHref("/")} aria-label="FriendCircle home">
-          <span className="home-brand-mark" aria-hidden="true"><i /><i /></span>
-          <span>friend<span>circle</span></span>
-        </a>
+        <BrandLogo className="home-brand" href={appHref("/")} />
         <span className="home-header-line">Good people. Close by.</span>
         <nav className="home-account" aria-label="Account">
           <a className="home-login" href={appHref("/auth")}>Log in</a>

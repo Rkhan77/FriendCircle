@@ -1,8 +1,9 @@
 "use client";
 import { appHref } from "@/lib/paths";
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, Plus, ShieldCheck, Utensils } from "lucide-react";
+import { ArrowLeft, Plus, Utensils } from "lucide-react";
 import { api } from "@/lib/api";
+import BrandLogo from "@/components/BrandLogo";
 import type { MealOffer } from "@/lib/model";
 
 export default function RegisterRestaurant() {
@@ -63,7 +64,7 @@ export default function RegisterRestaurant() {
     <main className="platform-dashboard">
       <header className="admin-topbar">
         <div className="admin-topbrand">
-          <ShieldCheck size={24} /> friendcircle <b>admin</b>
+          <BrandLogo /> <b>admin</b>
         </div>
         <a className="admin-back-link" href={appHref("/admin")}>
           <ArrowLeft size={16} /> Dashboard

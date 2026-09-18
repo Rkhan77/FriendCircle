@@ -56,6 +56,7 @@ import {
 } from "@/lib/model";
 import { api } from "@/lib/api";
 import GroupChats from "@/components/GroupChats";
+import BrandLogo from "@/components/BrandLogo";
 import { keys, encrypt, decrypt } from "@/lib/crypto";
 type RequestView = Verification & { fromName: string; toName: string };
 type MealOfferView = MealOffer & {
@@ -519,7 +520,7 @@ export default function Home() {
     return (
       <main className="auth-page">
         <div className="auth-card">
-          <Brand />
+          <BrandLogo />
           <h1>Opening sign in…</h1>
           <p><a href={appHref("/auth")}>Continue to account access</a></p>
         </div>
@@ -534,7 +535,7 @@ export default function Home() {
     return (
       <main className="auth-page">
         <div className="auth-card">
-          <Brand />
+          <BrandLogo />
           <h1>Make yourself at home.</h1>
           <form
             onSubmit={async (e) => {
@@ -570,7 +571,7 @@ export default function Home() {
   if (!data?.me)
     return (
       <main className="auth-page">
-        <Brand />
+        <BrandLogo />
         {error ? (
           <>
             <p role="alert">{error}</p>
@@ -589,10 +590,7 @@ export default function Home() {
   return (
     <div className="app-shell">
       <aside className="rail">
-        <a className="brand-symbol" href={process.env.NEXT_PUBLIC_PAGES_PREVIEW === "1" ? "/FriendCircle/" : "/"} aria-label="FriendCircle home">
-          <span />
-          <span />
-        </a>
+        <BrandLogo markOnly className="brand-symbol" href={appHref("/")} />
         <nav>
           {(
             [
@@ -654,7 +652,7 @@ export default function Home() {
           </div>
         )}
         <header className="header">
-          <Brand />
+          <BrandLogo />
           <div className="header-right">
             <span className="privacy-label">
               <Lock size={13} /> A space for your people
@@ -2319,16 +2317,6 @@ export default function Home() {
           </button>
         </div>
       )}
-    </div>
-  );
-}
-function Brand() {
-  return (
-    <div className="brand">
-      <span>
-        friend<span>circle</span>
-        <i />
-      </span>
     </div>
   );
 }

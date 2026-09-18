@@ -15,12 +15,12 @@ import {
   LogOut,
   MapPin,
   Plus,
-  ShieldCheck,
   Utensils,
   Users,
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import BrandLogo from "@/components/BrandLogo";
 import type { MealOffer, RestaurantChangeRequest } from "@/lib/model";
 
 type Count = { invitations: number; accepted: number; redeemed: number };
@@ -183,7 +183,7 @@ export default function AdminDashboard() {
     <main className="platform-dashboard">
       <header className="admin-topbar">
         <div className="admin-topbrand">
-          <ShieldCheck size={24} /> friendcircle <b>admin</b>
+          <BrandLogo /> <b>admin</b>
         </div>
         <div>
           <span className="admin-mode">

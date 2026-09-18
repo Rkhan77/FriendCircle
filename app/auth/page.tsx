@@ -3,6 +3,7 @@ import { appHref } from "@/lib/paths";
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Mail, Phone, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
+import BrandLogo from "@/components/BrandLogo";
 
 type Step = "identifier" | "password" | "signup" | "code" | "sent";
 export default function AccountAccess() {
@@ -67,7 +68,7 @@ export default function AccountAccess() {
     });
   }
   return <main className="auth-page access-page"><div className="auth-card">
-    <div className="access-brand"><span className="brand-symbol"><span /><span /></span><strong>friendcircle</strong></div>
+    <BrandLogo className="access-brand" />
     <div className="access-icon">{phone ? <Phone size={24} /> : <Mail size={24} />}</div>
     <h1>{step === "identifier" ? "Find your circle." : step === "signup" ? "Join your circle." : step === "code" ? "Enter your code." : step === "sent" ? "Check your email." : "Welcome back."}</h1>
     <p>{step === "identifier" ? "Start with your email or mobile number." : step === "signup" ? "Create an account to see your people nearby." : step === "sent" ? "Open the confirmation link to finish signing up." : `Continue with ${identifier}.`}</p>

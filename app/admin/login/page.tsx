@@ -1,8 +1,9 @@
 "use client";
 import { appHref } from "@/lib/paths";
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 import { api } from "@/lib/api";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function AdminLogin() {
   const [demo, setDemo] = useState<boolean | null>(null);
@@ -32,10 +33,8 @@ export default function AdminLogin() {
     <main className="admin-auth">
       <div className="admin-auth-card">
         <div className="admin-auth-brand">
-          <ShieldCheck size={27} />
-          <span>
-            friendcircle <b>admin</b>
-          </span>
+          <BrandLogo />
+          <b>admin</b>
         </div>
         <div className="admin-auth-symbol">
           <LockKeyhole size={29} />

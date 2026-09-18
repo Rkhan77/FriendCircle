@@ -1,8 +1,9 @@
 "use client";
 import { appHref } from "@/lib/paths";
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, Store } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { api } from "@/lib/api";
+import BrandLogo from "@/components/BrandLogo";
 export default function PartnerLogin() {
   const [demo, setDemo] = useState<boolean | null>(null);
   const [mode, setMode] = useState<"password" | "code">("password");
@@ -40,7 +41,7 @@ export default function PartnerLogin() {
     });
   }
   return <main className="admin-auth"><div className="admin-auth-card">
-    <div className="admin-auth-brand"><Store size={27} /><span>friendcircle <b>partner</b></span></div>
+    <div className="admin-auth-brand"><BrandLogo /><b>partner</b></div>
     <h1>Partner sign in</h1><p>Manage your contact details and schedule restaurant offers.</p>
     {error && <div className="admin-error" role="alert">{error}</div>}
     {notice && <div className="admin-notice" role="status">{notice}</div>}
