@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Minus, Plus, Navigation, Utensils, Ticket, X } from "lucide-react";
+import { Minus, Plus, Navigation, Search, Utensils, Ticket, X } from "lucide-react";
 import type { Map as LibreMap, Marker, GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
@@ -135,6 +135,7 @@ function suburbFlagPoint(
 export default function MapView({
   mode,
   friends,
+  recommendedFriendIds,
   me,
   suburb,
   onConnect,
@@ -156,6 +157,7 @@ export default function MapView({
 }: {
   mode: "friends" | "restaurants";
   friends: Friend[];
+  recommendedFriendIds: string[];
   me: Person;
   suburb?: { code: string; name: string; geometry: GeoJSON.Geometry } | null;
   onConnect: (friend: Friend) => void;
@@ -177,6 +179,7 @@ export default function MapView({
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mealCard = useRef<HTMLDivElement>(null);
+  const inviteDialog = useRef<HTMLDialogElement>(null);
   const mapRef = useRef<LibreMap | null>(null);
   const friendFlag = useRef<Marker | null>(null);
   const offerMarkers = useRef<Marker[]>([]);
@@ -193,6 +196,7 @@ export default function MapView({
   } | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteIds, setInviteIds] = useState<string[]>([]);
+  const [inviteQuery, setInviteQuery] = useState("");
   const [mealAnchor, setMealAnchor] = useState<{
     x: number;
     y: number;
@@ -206,7 +210,12 @@ export default function MapView({
   useEffect(() => {
     setInviteOpen(false);
     setInviteIds([]);
+    setInviteQuery("");
   }, [openRestaurantId]);
+  useEffect(() => {
+    if (inviteOpen && inviteDialog.current && !inviteDialog.current.open)
+      inviteDialog.current.showModal();
+  }, [inviteOpen]);
   useEffect(() => {
     if (!focusNonce) return;
     const first = invitations.find(
@@ -555,6 +564,16 @@ export default function MapView({
   const selectedVoucher = vouchers.find((v) =>
     selectedInvites.some((i) => i.voucherId === v.id),
   );
+  const recommended = recommendedFriendIds.filter((id) => friends.some((friend) => friend.id === id));
+  const matchingFriends = friends
+    .filter((friend) => friend.name.toLowerCase().includes(inviteQuery.trim().toLowerCase()))
+    .sort((a, b) => {
+      const aRank = recommended.indexOf(a.id), bRank = recommended.indexOf(b.id);
+      if (aRank >= 0 && bRank >= 0) return aRank - bRank;
+      if (aRank >= 0) return -1;
+      if (bRank >= 0) return 1;
+      return a.name.localeCompare(b.name);
+    });
   return (
     <div
       className={`map-surface ${mode === "restaurants" ? "restaurant-map-surface" : ""}`}
@@ -697,54 +716,11 @@ export default function MapView({
               <div className="map-meal-group-invite">
                 <button
                   className="secondary"
-                  onClick={() => setInviteOpen((open) => !open)}
+                  onClick={() => setInviteOpen(true)}
                   aria-expanded={inviteOpen}
                 >
                   Invite friends to a meal
                 </button>
-                {inviteOpen && (
-                  <div className="map-meal-friend-picker">
-                    <small>Choose up to seven connected friends.</small>
-                    {friends.map((friend) => (
-                      <label key={friend.id}>
-                        <input
-                          type="checkbox"
-                          checked={inviteIds.includes(friend.id)}
-                          onChange={(event) =>
-                            setInviteIds((ids) =>
-                              event.target.checked
-                                ? [...ids, friend.id]
-                                : ids.filter((id) => id !== friend.id),
-                            )
-                          }
-                        />
-                        {friend.name}
-                      </label>
-                    ))}
-                    <button
-                      className="primary"
-                      disabled={
-                        busy || inviteIds.length < 1 || inviteIds.length > 7
-                      }
-                      onClick={async () => {
-                        if (
-                          await onCreateGathering(selectedOffer.id, inviteIds)
-                        ) {
-                          setInviteOpen(false);
-                          setInviteIds([]);
-                        }
-                      }}
-                    >
-                      Send meal invite
-                    </button>
-                    {demo && (
-                      <small>
-                        Demo invitations are illustrative and cannot be
-                        redeemed.
-                      </small>
-                    )}
-                  </div>
-                )}
               </div>
             )}
           {selectedGatherings.map((gathering) => (
@@ -842,6 +818,22 @@ export default function MapView({
           aria-hidden="true"
           style={{ left: mealAnchor.pinX, top: mealAnchor.y - 7 }}
         />
+      )}
+      {inviteOpen && selectedOffer && (
+        <dialog ref={inviteDialog} className="meal-invite-dialog" aria-label={`Invite friends to ${selectedOffer.restaurantName}`} onCancel={() => setInviteOpen(false)}>
+          <div className="dialog-head"><div><h2>Invite friends to a meal</h2><small>{selectedOffer.restaurantName} · choose up to seven friends</small></div><button className="icon-button" aria-label="Close meal invitation" onClick={() => setInviteOpen(false)}><X size={18} /></button></div>
+          <label className="meal-invite-search"><Search size={17} /><input autoFocus value={inviteQuery} onChange={(event) => setInviteQuery(event.target.value)} placeholder="Search your circle" aria-label="Search friends to invite" /></label>
+          {!inviteQuery && recommended.length > 0 && <p className="meal-invite-section-label">Recommended from your recent interactions</p>}
+          <div className="meal-invite-results">
+            {matchingFriends.map((friend, index) => <label key={friend.id} className="meal-invite-row">
+              <input type="checkbox" checked={inviteIds.includes(friend.id)} disabled={!inviteIds.includes(friend.id) && inviteIds.length >= 7} onChange={(event) => setInviteIds((ids) => event.target.checked ? [...ids, friend.id] : ids.filter((id) => id !== friend.id))} />
+              <Avatar person={friend} size="small" /><span><strong>{friend.name}</strong>{recommended.includes(friend.id) && <small>Recommended</small>}</span>
+              {!inviteQuery && recommended.length > 0 && index === recommended.length - 1 && <span className="meal-invite-divider" aria-hidden="true" />}
+            </label>)}
+            {!matchingFriends.length && <p>No friends match that search.</p>}
+          </div>
+          <div className="meal-invite-footer"><small>{inviteIds.length} of 7 selected{demo ? " · Demo invitations cannot be redeemed" : ""}</small><button className="primary" disabled={busy || inviteIds.length === 0} onClick={async () => { if (await onCreateGathering(selectedOffer.id, inviteIds)) { setInviteOpen(false); setInviteIds([]); setInviteQuery(""); } }}>Send meal invite</button></div>
+        </dialog>
       )}
       {mode === "restaurants" && (
         <div className="map-top-note">

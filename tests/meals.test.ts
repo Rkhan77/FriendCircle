@@ -14,6 +14,16 @@ import {
   remainingOfferRedemptions,
 } from "../lib/meals";
 
+test("A scheduled offer appears only during its start and end window", () => {
+  const offer = seed().mealOffers!.find((item) => item.id === "demo-circle-kitchen")!;
+  const now = Date.now();
+  offer.startsAt = now + 3600000;
+  offer.validUntil = now + 7200000;
+  assert.equal(publishedOffer(offer, now), false);
+  assert.equal(publishedOffer(offer, now + 3600000), true);
+  assert.equal(publishedOffer(offer, now + 7200000), false);
+});
+
 test("Accepted friends unlock configured group tiers and one shared redemption", () => {
   const s = seed();
   const now = Date.now();

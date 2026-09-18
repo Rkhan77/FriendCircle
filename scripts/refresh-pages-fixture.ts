@@ -8,7 +8,7 @@ const state = seed();
 const me = state.people.find((person) => person.id === "you")!;
 const suburb = suburbAt(me.lat, me.lng)!;
 const safePerson = (person: Person) => {
-  const { lat, lng, publicKey, avatarFile, ...publicFields } = person;
+  const { lat, lng, email, phone, publicKey, avatarFile, ...publicFields } = person;
   return publicFields;
 };
 const friends = state.people
@@ -60,6 +60,7 @@ const fixture = {
   suburb,
   friendPresence: friends.filter((friend) => friend.nearby).map(({ id, name }) => ({ id, name })),
   friends,
+  recommendedMealFriendIds: [],
   conversationIds: [],
   discoverable: publicProfiles,
   publicProfiles,
@@ -75,10 +76,8 @@ const fixture = {
   mealGatherings: [],
   mealInvitations: [],
   mealVouchers: [],
-  merchant: false,
   meetings: [],
   requests: [],
   demo: true,
-  admin: false,
 };
 await writeFile("data/pages-preview-state.json", JSON.stringify(fixture));

@@ -36,7 +36,6 @@ import {
   LoaderCircle,
   Utensils,
   Store,
-  BarChart3,
   Coins,
   Copy,
 } from "lucide-react";
@@ -70,6 +69,7 @@ type MealInvitationView = MealInvitation & {
 type AppState = {
   me: Person;
   friends: Friend[];
+  recommendedMealFriendIds: string[];
   discoverable: Friend[];
   publicProfiles: Friend[];
   suburbAchievements: {
@@ -87,7 +87,6 @@ type AppState = {
   mealVouchers: MealVoucherView[];
   mealInvitations: MealInvitationView[];
   mealGatherings: MealGatheringView[];
-  merchant: boolean;
   meetings: {
     a: string;
     b: string;
@@ -97,8 +96,8 @@ type AppState = {
   }[];
   requests: RequestView[];
   demo: boolean;
-  admin: boolean;
   onboarding?: boolean;
+  partner?: boolean;
 };
 type View =
   | "map"
@@ -107,9 +106,7 @@ type View =
   | "messages"
   | "requests"
   | "profile"
-  | "settings"
-  | "admin"
-  | "merchant";
+  | "settings";
 function Dialog({
   children,
   title,
@@ -189,7 +186,7 @@ export default function Home() {
     [openRestaurantId, setOpenRestaurantId] = useState<string | null>(null),
     [pendingTarget, setPendingTarget] = useState(""),
     [modal, setModal] = useState<
-      "add" | "status" | "report" | "block" | "partner" | null
+      "add" | "status" | "report" | "block" | null
     >(null),
     [toast, setToast] = useState(""),
     [presenceAlert, setPresenceAlert] = useState(false),
@@ -201,18 +198,11 @@ export default function Home() {
     [chat, setChat] = useState<Friend>(),
     [messages, setMessages] = useState<(Message & { plain: string })[]>([]),
     [draft, setDraft] = useState(""),
-    [admin, setAdmin] = useState<any>(),
-    [adminOffers, setAdminOffers] = useState<MealOffer[]>([]),
-    [editingOffer, setEditingOffer] = useState<MealOffer>(),
-    [merchantData, setMerchantData] = useState<any>(),
-    [merchantCode, setMerchantCode] = useState(""),
-    [redeemedMeal, setRedeemedMeal] = useState<any>(),
     [mealFocusNonce, setMealFocusNonce] = useState(0),
     [statusActivity, setStatusActivity] = useState<Activity>("coffee"),
     [statusText, setStatusText] = useState(""),
     [statusEmoji, setStatusEmoji] = useState(""),
-    [photoPreview, setPhotoPreview] = useState(""),
-    [loginBusy, setLoginBusy] = useState(false);
+    [photoPreview, setPhotoPreview] = useState("");
   const pair = useRef<CryptoKeyPair | undefined>(undefined),
     geoWatch = useRef<number | undefined>(undefined),
     chatEnd = useRef<HTMLDivElement>(null),
@@ -226,6 +216,10 @@ export default function Home() {
   const refresh = useCallback(async () => {
     try {
       const result = await api<AppState>("/state");
+      if (result.partner) {
+        window.location.replace("/partner");
+        return;
+      }
       setData(result);
       const suburbCode = result.suburb?.code || null;
       if (
@@ -322,6 +316,10 @@ export default function Home() {
       .catch((e) => setError(e.message));
     refresh();
   }, [refresh]);
+  useEffect(() => {
+    if (login && process.env.NEXT_PUBLIC_PAGES_PREVIEW !== "1")
+      window.location.replace("/auth");
+  }, [login]);
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_PAGES_PREVIEW === "1") return;
     if (!data?.me) return;
@@ -421,20 +419,6 @@ export default function Home() {
   useEffect(() => {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
-  useEffect(() => {
-    if (view === "admin") {
-      api("/admin")
-        .then(setAdmin)
-        .catch((e) => notify(e.message));
-      api<MealOffer[]>("/admin/meal-offers")
-        .then(setAdminOffers)
-        .catch((e) => notify(e.message));
-    }
-    if (view === "merchant")
-      api("/meals/merchant")
-        .then(setMerchantData)
-        .catch((e) => notify(e.message));
-  }, [view, data, notify]);
   async function action(fn: () => Promise<unknown>, success?: string) {
     setBusy(true);
     try {
@@ -535,46 +519,8 @@ export default function Home() {
       <main className="auth-page">
         <div className="auth-card">
           <Brand />
-          <h1>Welcome back to your circle.</h1>
-          <p>Sign in to find your people nearby.</p>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setLoginBusy(true);
-              const form = new FormData(e.currentTarget);
-              try {
-                await api("/login", {
-                  method: "POST",
-                  body: JSON.stringify(Object.fromEntries(form)),
-                });
-                await refresh();
-              } catch (e) {
-                notify((e as Error).message);
-              } finally {
-                setLoginBusy(false);
-              }
-            }}
-          >
-            <label>
-              Email
-              <input name="email" type="email" required autoComplete="email" />
-            </label>
-            <label>
-              Password
-              <input
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-              />
-            </label>
-            <button className="primary" disabled={loginBusy}>
-              {loginBusy ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
-          <small>
-            New accounts are invited by your community administrator.
-          </small>
+          <h1>Opening sign in…</h1>
+          <p><a href="/auth">Continue to account access</a></p>
         </div>
         {toast && (
           <div className="toast" role="status">
@@ -683,35 +629,6 @@ export default function Home() {
           ))}
         </nav>
         <div className="rail-bottom">
-          {(data.merchant || data.admin) && (
-            <button
-              title="Restaurant redemption"
-              aria-label="Restaurant redemption"
-              className={view === "merchant" ? "active" : ""}
-              onClick={() => setView("merchant")}
-            >
-              <Utensils size={22} />
-            </button>
-          )}
-          {data.admin && (
-            <button
-              title="Platform admin"
-              aria-label="Platform admin"
-              onClick={() => window.location.assign("/admin/login")}
-            >
-              <BarChart3 size={22} />
-            </button>
-          )}
-          {data.admin && (
-            <button
-              title="Review dashboard"
-              aria-label="Review dashboard"
-              className={view === "admin" ? "active" : ""}
-              onClick={() => setView("admin")}
-            >
-              <ShieldCheck size={22} />
-            </button>
-          )}
           <button
             title="Settings"
             aria-label="Settings"
@@ -867,8 +784,6 @@ export default function Home() {
                     requests: "Real moments. Real friends.",
                     profile: "Your profile, your story.",
                     settings: "Your space, your rules.",
-                    admin: "Keep the circle safe.",
-                    merchant: "Make a meal moment count.",
                   }[view]
                 }
               </h1>
@@ -902,10 +817,6 @@ export default function Home() {
                       requests: "Bring the people you know into your circle.",
                       profile: "Share what makes you, you.",
                       settings: "Choose what you share and how you show up.",
-                      admin:
-                        "Review photos and help resolve community reports.",
-                      merchant:
-                        "Redeem a shared-meal code for your restaurant.",
                     }[view]
                   }
                 </p>
@@ -1220,6 +1131,7 @@ export default function Home() {
                   <MapView
                     mode={view === "catchup" ? "restaurants" : "friends"}
                     friends={data.friends}
+                    recommendedFriendIds={data.recommendedMealFriendIds || []}
                     me={data.me}
                     suburb={data.suburb}
                     onConnect={openChat}
@@ -2007,278 +1919,6 @@ export default function Home() {
               </div>
             </section>
           )}
-          {view === "admin" && (
-            <section className="content-card">
-              <div className="section-heading">
-                <h2>Verification queue</h2>
-                <span className="pill">
-                  {data.demo ? "Demo reviewer" : "Authorized reviewer"}
-                </span>
-              </div>
-              {admin ? (
-                <>
-                  <div className="review-grid">
-                    {admin.requests
-                      .filter((r: any) => r.state === "review")
-                      .map((r: any) => (
-                        <article className="review-card" key={r.id}>
-                          {r.hasPhoto && (
-                            <img
-                              src={`/api/admin/photo/${r.id}`}
-                              alt={`Submitted verification for ${r.fromName} and ${r.toName}`}
-                            />
-                          )}
-                          <h3>
-                            {r.fromName} + {r.toName}
-                          </h3>
-                          <p>{r.reason}</p>
-                          <small>
-                            Check that exactly two faces are clearly visible.
-                            Approval still requires the recipient’s acceptance.
-                          </small>
-                          <div className="button-row">
-                            <button
-                              className="secondary"
-                              disabled={busy}
-                              onClick={() =>
-                                action(
-                                  () =>
-                                    api(`/admin/review/${r.id}`, {
-                                      method: "POST",
-                                      body: JSON.stringify({ approve: false }),
-                                    }),
-                                  "Photo rejected",
-                                )
-                              }
-                            >
-                              Reject
-                            </button>
-                            <button
-                              className="primary"
-                              disabled={busy}
-                              onClick={() =>
-                                action(
-                                  () =>
-                                    api(`/admin/review/${r.id}`, {
-                                      method: "POST",
-                                      body: JSON.stringify({ approve: true }),
-                                    }),
-                                  "Photo approved; waiting for recipient",
-                                )
-                              }
-                            >
-                              Approve photo
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                  </div>
-                  {!admin.requests.some((r: any) => r.state === "review") && (
-                    <div className="empty-inline">
-                      <CheckCheck />
-                      <p>You’re all caught up. No photos need review.</p>
-                    </div>
-                  )}
-                  <h2 className="reports-title">Community reports</h2>
-                  {admin.reports
-                    .filter((r: any) => !r.resolved)
-                    .map((r: any) => (
-                      <div className="request-row" key={r.id}>
-                        <Flag size={22} />
-                        <div>
-                          <strong>Reported account: {r.target}</strong>
-                          <p>{r.reason}</p>
-                          <small>From {r.from}</small>
-                        </div>
-                        <button
-                          className="secondary"
-                          onClick={() =>
-                            action(
-                              () =>
-                                api(`/admin/reports/${r.id}/resolve`, {
-                                  method: "POST",
-                                }),
-                              "Report marked resolved",
-                            )
-                          }
-                        >
-                          Mark resolved
-                        </button>
-                      </div>
-                    ))}
-                  {!admin.reports.some((r: any) => !r.resolved) && (
-                    <p className="muted">No open reports.</p>
-                  )}
-                  <div className="section-heading meal-admin-heading">
-                    <h2>Restaurant offers</h2>
-                    <span className="pill">
-                      {adminOffers.filter((o) => o.active).length} published
-                    </span>
-                  </div>
-                  <p className="muted">
-                    A restaurant name is a proposal until the venue confirms the
-                    exact discount and terms. Users see only published offers.
-                  </p>
-                  {adminOffers.map((offer) => (
-                    <div className="request-row" key={offer.id}>
-                      <Utensils size={22} />
-                      <div>
-                        <strong>
-                          {offer.restaurantName} · {offer.area}
-                        </strong>
-                        <p>{offer.address || "Address pending"}</p>
-                        <small>
-                          {offer.active
-                            ? `${offer.discountPercent}% offer published`
-                            : "Unpublished draft · no discount promised"}
-                        </small>
-                      </div>
-                      <button
-                        className="secondary"
-                        onClick={() => {
-                          setEditingOffer(offer);
-                          setModal("partner");
-                        }}
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  ))}
-                  <form
-                    className="restaurant-draft-form"
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const formElement = e.currentTarget;
-                      const f = new FormData(formElement);
-                      const ok = await action(
-                        () =>
-                          api("/admin/meal-offers", {
-                            method: "POST",
-                            body: JSON.stringify({
-                              restaurantName: f.get("restaurantName"),
-                              area: f.get("area"),
-                              address: f.get("address") || undefined,
-                            }),
-                          }),
-                        "Restaurant draft saved",
-                      );
-                      if (ok) formElement.reset();
-                    }}
-                  >
-                    <h3>Add restaurant draft</h3>
-                    <input
-                      name="restaurantName"
-                      aria-label="Restaurant name"
-                      placeholder="Restaurant name"
-                      required
-                      maxLength={80}
-                    />
-                    <input
-                      name="area"
-                      aria-label="Restaurant area"
-                      placeholder="Area"
-                      required
-                      maxLength={80}
-                    />
-                    <input
-                      name="address"
-                      aria-label="Restaurant address"
-                      placeholder="Address (optional)"
-                      maxLength={140}
-                    />
-                    <button className="secondary" disabled={busy}>
-                      Save draft
-                    </button>
-                  </form>
-                </>
-              ) : (
-                <p>Loading review queue…</p>
-              )}
-            </section>
-          )}
-          {view === "merchant" && (
-            <section className="content-card merchant-card">
-              <div className="section-heading">
-                <h2>Restaurant redemption</h2>
-                <span className="pill">Staff access</span>
-              </div>
-              <p>
-                Ask an accepted diner for the shared code. Confirm the group is
-                present, then redeem it once at the discount unlocked by the
-                accepted diner count.
-              </p>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  try {
-                    const result = await api<any>("/meals/redeem", {
-                      method: "POST",
-                      body: JSON.stringify({ code: merchantCode }),
-                    });
-                    setRedeemedMeal(result);
-                    setMerchantCode("");
-                    await refresh();
-                  } catch (e) {
-                    notify((e as Error).message);
-                  }
-                }}
-              >
-                <label>
-                  Meal code
-                  <input
-                    value={merchantCode}
-                    onChange={(e) =>
-                      setMerchantCode(e.target.value.toUpperCase())
-                    }
-                    aria-label="Meal code"
-                    placeholder="16-character code"
-                    maxLength={16}
-                    required
-                  />
-                </label>
-                <button
-                  className="primary"
-                  disabled={merchantCode.length !== 16 || busy}
-                >
-                  Redeem code
-                </button>
-              </form>
-              {redeemedMeal && (
-                <div className="redeemed-result" role="status">
-                  <CheckCheck size={20} />
-                  <div>
-                    <strong>
-                      {redeemedMeal.discountPercent}% discount redeemed at{" "}
-                      {redeemedMeal.restaurantName}
-                    </strong>
-                    <p>
-                      {redeemedMeal.diners?.join(" and ")} ·{" "}
-                      {redeemedMeal.terms}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {merchantData?.offers?.length ? (
-                <p className="muted">
-                  {data?.admin
-                    ? "Restaurants in review"
-                    : "Assigned restaurants"}
-                  :{" "}
-                  {merchantData.offers
-                    .map(
-                      (o: any) =>
-                        `${o.restaurantName} (${o.remainingRedemptions ?? 0} offers left)`,
-                    )
-                    .join(", ")}
-                </p>
-              ) : (
-                <p className="muted">
-                  No restaurant manager assignment yet. Authorized admins can
-                  test redemption.
-                </p>
-              )}
-            </section>
-          )}
         </main>
         {view === "map" && (
           <footer className="page-footer">
@@ -2533,250 +2173,6 @@ export default function Home() {
                 </>
               )}
             </button>
-          </form>
-        </Dialog>
-      )}
-      {modal === "partner" && editingOffer && (
-        <Dialog
-          title={`Restaurant draft · ${editingOffer.restaurantName}`}
-          close={() => {
-            setModal(null);
-            setEditingOffer(undefined);
-          }}
-        >
-          <p className="dialog-description">
-            This offer stays unpublished until the restaurant approves the exact
-            discount, funding, dates, and terms.
-          </p>
-          <form
-            className="partner-form"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              const value = (key: string) => String(f.get(key) || "").trim();
-              const publish = f.get("partnerConfirmed") === "on";
-              const body = {
-                restaurantName: value("restaurantName"),
-                area: value("area"),
-                address: value("address") || undefined,
-                lat: value("lat") ? Number(value("lat")) : undefined,
-                lng: value("lng") ? Number(value("lng")) : undefined,
-                managerId: value("managerId") || undefined,
-                discountPercent: value("discountPercent")
-                  ? Number(value("discountPercent"))
-                  : undefined,
-                redemptionLimit: value("redemptionLimit")
-                  ? Number(value("redemptionLimit"))
-                  : undefined,
-                groupDiscountTiers: [2, 3, 4].map((diners) => ({
-                  diners,
-                  discountPercent: Number(
-                    value(
-                      diners === 2 ? "discountPercent" : `discount${diners}`,
-                    ),
-                  ),
-                })),
-                fundedBy: value("fundedBy") || undefined,
-                terms: value("terms") || undefined,
-                validUntil: value("validUntil")
-                  ? new Date(`${value("validUntil")}T23:59:59`).getTime()
-                  : undefined,
-                ...(publish ? { active: true, partnerConfirmed: true } : {}),
-              };
-              const ok = await action(
-                () =>
-                  api(`/admin/meal-offers/${editingOffer.id}`, {
-                    method: "PATCH",
-                    body: JSON.stringify(body),
-                  }),
-                publish ? "Meal offer published" : "Restaurant draft saved",
-              );
-              if (ok) {
-                setModal(null);
-                setEditingOffer(undefined);
-              }
-            }}
-          >
-            <label>
-              Restaurant name
-              <input
-                name="restaurantName"
-                defaultValue={editingOffer.restaurantName}
-                required
-                maxLength={80}
-              />
-            </label>
-            <label>
-              Area
-              <input
-                name="area"
-                defaultValue={editingOffer.area}
-                required
-                maxLength={80}
-              />
-            </label>
-            <label>
-              Address
-              <input
-                name="address"
-                defaultValue={editingOffer.address || ""}
-                maxLength={140}
-              />
-            </label>
-            <div className="partner-grid">
-              <label>
-                Latitude
-                <input
-                  name="lat"
-                  type="number"
-                  step="any"
-                  defaultValue={editingOffer.lat}
-                />
-              </label>
-              <label>
-                Longitude
-                <input
-                  name="lng"
-                  type="number"
-                  step="any"
-                  defaultValue={editingOffer.lng}
-                />
-              </label>
-            </div>
-            <label>
-              Restaurant manager Circle ID
-              <input
-                name="managerId"
-                defaultValue={editingOffer.managerId || ""}
-                placeholder="Staff account ID"
-                maxLength={100}
-              />
-            </label>
-            <div className="partner-grid">
-              <label>
-                2 diners (%)
-                <input
-                  name="discountPercent"
-                  type="number"
-                  min={1}
-                  max={50}
-                  defaultValue={editingOffer.discountPercent}
-                />
-              </label>
-              <label>
-                Funded by
-                <select
-                  name="fundedBy"
-                  defaultValue={editingOffer.fundedBy || ""}
-                >
-                  <option value="">Choose funding</option>
-                  <option value="restaurant">Restaurant</option>
-                  <option value="friendcircle">FriendCircle</option>
-                  <option value="shared">Shared</option>
-                </select>
-              </label>
-            </div>
-            <div className="partner-grid">
-              <label>
-                3 diners (%)
-                <input
-                  name="discount3"
-                  type="number"
-                  min={1}
-                  max={50}
-                  required
-                  defaultValue={
-                    editingOffer.groupDiscountTiers?.find(
-                      (tier) => tier.diners === 3,
-                    )?.discountPercent ??
-                    Math.min(50, (editingOffer.discountPercent || 10) + 5)
-                  }
-                />
-              </label>
-              <label>
-                4+ diners (%)
-                <input
-                  name="discount4"
-                  type="number"
-                  min={1}
-                  max={50}
-                  required
-                  defaultValue={
-                    editingOffer.groupDiscountTiers?.find(
-                      (tier) => tier.diners === 4,
-                    )?.discountPercent ??
-                    Math.min(50, (editingOffer.discountPercent || 10) + 10)
-                  }
-                />
-              </label>
-            </div>
-            <label>
-              Maximum offer redemptions
-              <input
-                name="redemptionLimit"
-                type="number"
-                min={1}
-                max={1000000}
-                required
-                defaultValue={editingOffer.redemptionLimit}
-              />
-            </label>
-            <label>
-              Offer valid through
-              <input
-                name="validUntil"
-                type="date"
-                defaultValue={
-                  editingOffer.validUntil
-                    ? new Date(editingOffer.validUntil)
-                        .toISOString()
-                        .slice(0, 10)
-                    : ""
-                }
-              />
-            </label>
-            <label>
-              Full meal terms
-              <textarea
-                name="terms"
-                defaultValue={editingOffer.terms || ""}
-                maxLength={500}
-                placeholder="Eligible meals, exclusions, and redemption conditions"
-              />
-            </label>
-            <label className="check-label">
-              <input type="checkbox" name="partnerConfirmed" /> I have written
-              approval from this restaurant for these exact terms and funding;
-              publish this offer.
-            </label>
-            <div className="button-row">
-              <button className="primary" disabled={busy}>
-                Save offer
-              </button>
-              {editingOffer.active && (
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={async () => {
-                    if (
-                      await action(
-                        () =>
-                          api(`/admin/meal-offers/${editingOffer.id}`, {
-                            method: "PATCH",
-                            body: JSON.stringify({ active: false }),
-                          }),
-                        "Offer unpublished",
-                      )
-                    ) {
-                      setModal(null);
-                      setEditingOffer(undefined);
-                    }
-                  }}
-                >
-                  Unpublish
-                </button>
-              )}
-            </div>
           </form>
         </Dialog>
       )}

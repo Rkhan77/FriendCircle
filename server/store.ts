@@ -48,6 +48,11 @@ export async function initStore() {
       changed = true;
     }
     const demoVenue = existing.mealOffers?.find((o) => o.id === "demo-circle-kitchen");
+    for (const offer of existing.mealOffers || [])
+      if (offer.active && offer.partnerConfirmedAt && !offer.venueApprovedAt && !offer.venueId) {
+        offer.venueApprovedAt = offer.partnerConfirmedAt;
+        changed = true;
+      }
     if (demoVenue && !demoVenue.redemptionLimit) {
       demoVenue.redemptionLimit = 100;
       changed = true;

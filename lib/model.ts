@@ -8,6 +8,8 @@ export const activities = {
 export type Activity = keyof typeof activities;
 export interface Person {
   id: string;
+  email?: string;
+  phone?: string;
   name: string;
   initials: string;
   color: string;
@@ -46,6 +48,7 @@ export interface Meeting {
 }
 export interface MealOffer {
   id: string;
+  venueId?: string;
   deletedAt?: number;
   restaurantName: string;
   area: string;
@@ -62,9 +65,32 @@ export interface MealOffer {
   terms?: string;
   fundedBy?: "restaurant" | "friendcircle" | "shared";
   partnerConfirmedAt?: number;
+  venueApprovedAt?: number;
   active: boolean;
   validUntil?: number;
+  startsAt?: number;
   createdAt: number;
+}
+export interface PartnerInvite {
+  offerId: string;
+  managerId: string;
+  tokenHash?: string;
+  expiresAt: number;
+  acceptedAt?: number;
+}
+export interface RestaurantChangeRequest {
+  id: string;
+  venueId: string;
+  managerId: string;
+  restaurantName: string;
+  area: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: number;
+  reviewedAt?: number;
 }
 export interface MealVoucher {
   id: string;
@@ -184,6 +210,8 @@ export interface Report {
   resolved: boolean;
 }
 export interface State {
+  partnerInvites?: PartnerInvite[];
+  restaurantChangeRequests?: RestaurantChangeRequest[];
   suburbAchievements?: Record<string, number[]>;
   meetingAnalytics?: MeetingAnalytics;
   offerAnalytics?: OfferAnalytics;
@@ -256,6 +284,8 @@ export function seed(): State {
   const people: Person[] = [
     {
       id: "you",
+      email: "alex@example.test",
+      phone: "+61400000000",
       name: "Alex Morgan",
       initials: "AM",
       color: "#efad94",
@@ -418,6 +448,7 @@ export function seed(): State {
           "Demo only. Illustrative group discount; no real restaurant offer or redemption.",
         fundedBy: "restaurant",
         partnerConfirmedAt: now,
+        venueApprovedAt: now,
         validUntil: now + 365 * 86400000,
         active: true,
         createdAt: now,

@@ -15,7 +15,7 @@ import {
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 import { z } from "zod";
 import { activities, distanceKm, isFriend, type Person } from "../lib/model";
 import { demo, initStore, transact } from "./store";
@@ -24,8 +24,10 @@ import { updateSuburbAchievements } from "../lib/achievements";
 import { commonTraits, acceptedChatRequest } from "../lib/traits";
 import { groupRoutes } from "./groups";
 import { mealRoutes, mealOffersForUser, mealGatheringsForUser } from "./meals";
+import { partnerRoutes, findDemoPartnerInvite } from "./partners";
 import { syncMealInvitations } from "../lib/meals";
 import { adminAnalytics } from "../lib/analytics";
+import { recommendedMealFriends } from "../lib/recommendations";
 import {
   tickMeetings,
   encryptedTextCost,
@@ -212,6 +214,27 @@ const adminUserIds = (process.env.ADMIN_USER_IDS || "")
   .map((v) => v.trim())
   .filter(Boolean);
 const demoAdminToken = randomUUID();
+const demoPartnerSessions = new Map<string, string>();
+const identityField = z.union([
+  z.object({ email: z.email(), phone: z.undefined().optional() }),
+  z.object({ phone: z.string().regex(/^\+[1-9]\d{7,14}$/), email: z.undefined().optional() }),
+]);
+const loginFields = identityField.and(z.object({ password: z.string().min(1).max(200) }));
+function jwtIdentity(token: string) {
+  const payload = decodeJwt(token);
+  return { id: String(payload.sub || ""), email: typeof payload.email === "string" ? payload.email : undefined, phone: typeof payload.phone === "string" ? payload.phone : undefined };
+}
+async function authCall(pathname: string, body: object) {
+  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/${pathname}`, {
+    method: "POST",
+    headers: { apikey: process.env.SUPABASE_ANON_KEY!, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new InvalidCredentials(data.msg || data.message || data.error_description || "Authentication could not be completed.");
+  return data;
+}
 async function identity(cookie?: string) {
   if (demo) return "you";
   const token = cookie
@@ -230,24 +253,8 @@ async function identity(cookie?: string) {
 app.get("/api/config", (_, res) => res.json({ demo }));
 class InvalidCredentials extends Error {}
 async function passwordSession(body: unknown) {
-  const input = z
-    .object({ email: z.email(), password: z.string().min(1).max(200) })
-    .parse(body);
-  const response = await fetch(
-    `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,
-    {
-      method: "POST",
-      headers: {
-        apikey: process.env.SUPABASE_ANON_KEY!,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(input),
-    },
-  );
-  const data = await response.json();
-  if (!response.ok)
-    throw new InvalidCredentials("Email or password was not accepted.");
-  return data as { access_token: string; expires_in: number };
+  const input = loginFields.parse(body);
+  return await authCall("token?grant_type=password", input) as { access_token: string; expires_in: number };
 }
 function setSessionCookie(
   res: express.Response,
@@ -265,6 +272,83 @@ app.post("/api/login", async (req, res) => {
   if (demo) return res.json({ ok: true });
   const data = await passwordSession(req.body);
   setSessionCookie(res, data);
+  const claims = jwtIdentity(data.access_token);
+  await transact((s) => {
+    const person = s.people.find((item) => item.id === claims.id);
+    if (person) { person.email = claims.email; person.phone = claims.phone; }
+  });
+  res.json({ ok: true });
+});
+app.post("/api/auth/lookup", async (req, res) => {
+  const input = identityField.parse(req.body);
+  if (demo) return res.json({ exists: input.email === "alex@example.test" || input.phone === "+61400000000", demo: true });
+  const exists = await transact((s) => s.people.some((person) =>
+    input.email ? person.email?.toLowerCase() === input.email.toLowerCase() : person.phone === input.phone,
+  ));
+  res.json({ exists });
+});
+app.post("/api/auth/signup", async (req, res) => {
+  const input = loginFields.and(z.object({ adult: z.literal(true) })).parse(req.body);
+  if (demo) return res.json({ demo: true, message: "Demo mode does not create accounts. Open the sample account to explore FriendCircle." });
+  const { adult, ...credentials } = input;
+  const data = await authCall(`signup?redirect_to=${encodeURIComponent(`${origin}/auth/complete`)}`, credentials);
+  if (data.access_token) setSessionCookie(res, data);
+  res.json({ signedIn: !!data.access_token, confirm: input.phone ? "sms" : "email" });
+});
+app.post("/api/auth/request-code", async (req, res) => {
+  const input = identityField.parse(req.body);
+  if (demo) return res.json({ demo: true, message: "Demo mode does not send codes." });
+  await authCall(`otp?redirect_to=${encodeURIComponent(`${origin}/auth/complete`)}`, { ...input, create_user: false });
+  res.json({ ok: true });
+});
+app.post("/api/auth/verify-code", async (req, res) => {
+  const input = identityField.and(z.object({ token: z.string().trim().min(4).max(12) })).parse(req.body);
+  if (demo) return res.status(400).json({ error: "Demo mode does not send codes." });
+  const data = await authCall("verify", { ...input, type: input.phone ? "sms" : "email" });
+  if (!data.access_token) throw new InvalidCredentials("Code was not accepted.");
+  setSessionCookie(res, data);
+  res.json({ ok: true });
+});
+app.post("/api/auth/complete", async (req, res) => {
+  if (demo) return res.status(400).json({ error: "Use the demo account." });
+  const { accessToken } = z.object({ accessToken: z.string().min(20) }).parse(req.body);
+  const { payload } = await jwtVerify(accessToken, jwks!, { issuer: `${process.env.SUPABASE_URL}/auth/v1`, audience: "authenticated" });
+  if (!payload.sub) throw new InvalidCredentials("Invalid sign-in link.");
+  setSessionCookie(res, { access_token: accessToken, expires_in: Math.max(1, (payload.exp || 0) - Math.floor(Date.now() / 1000)) });
+  res.json({ ok: true });
+});
+app.post("/api/partner/login", async (req, res) => {
+  if (demo) {
+    return res.status(403).json({ error: "Open the partner invitation link from the platform admin." });
+  }
+  const session = await passwordSession(req.body);
+  const uid = jwtIdentity(session.access_token).id;
+  const assigned = await transact((s) => (s.mealOffers || []).some((offer) => !offer.deletedAt && offer.managerId === uid));
+  if (!assigned) return res.status(403).json({ error: "This account has no restaurant access." });
+  setSessionCookie(res, session);
+  res.json({ ok: true });
+});
+app.post("/api/partner/accept", async (req, res) => {
+  if (demo) {
+    const { token } = z.object({ token: z.string().length(48) }).parse(req.body);
+    const invite = await transact((s) => {
+      const item = findDemoPartnerInvite(s, token);
+      if (item) item.acceptedAt = Date.now();
+      return item;
+    });
+    if (!invite) return res.status(400).json({ error: "Partner invite has expired." });
+    const session = randomUUID();
+    demoPartnerSessions.set(session, invite.managerId);
+    res.cookie("fc_demo_partner", session, { httpOnly: true, sameSite: "strict", path: "/" });
+    return res.json({ ok: true, demo: true });
+  }
+  const { accessToken } = z.object({ accessToken: z.string().min(20) }).parse(req.body);
+  const { payload } = await jwtVerify(accessToken, jwks!, { issuer: `${process.env.SUPABASE_URL}/auth/v1`, audience: "authenticated" });
+  if (!payload.sub) throw new InvalidCredentials("Invalid partner invite.");
+  const assigned = await transact((s) => (s.mealOffers || []).some((offer) => !offer.deletedAt && offer.managerId === payload.sub));
+  if (!assigned) return res.status(403).json({ error: "This invite is not assigned to a restaurant." });
+  await transact((s) => { for (const invite of s.partnerInvites || []) if (invite.managerId === payload.sub) invite.acceptedAt = Date.now(); });
+  setSessionCookie(res, { access_token: accessToken, expires_in: Math.max(1, (payload.exp || 0) - Math.floor(Date.now() / 1000)) });
   res.json({ ok: true });
 });
 app.post("/api/admin/login", async (req, res) => {
@@ -291,11 +375,14 @@ app.post("/api/admin/login", async (req, res) => {
 app.post("/api/logout", (_, res) => {
   res.clearCookie("fc_token");
   res.clearCookie("fc_demo_admin");
+  res.clearCookie("fc_demo_partner");
   res.json({ ok: true });
 });
 app.use("/api", async (req, res, next) => {
   try {
     res.locals.uid = await identity(req.headers.cookie);
+    const partnerToken = req.headers.cookie?.split(";").map((part) => part.trim()).find((part) => part.startsWith("fc_demo_partner="))?.slice(16);
+    res.locals.partnerUid = demo ? demoPartnerSessions.get(partnerToken || "") : res.locals.uid;
     res.locals.admin = demo
       ? req.headers.cookie
           ?.split(";")
@@ -315,7 +402,7 @@ app.get("/api/state", async (req, res) => {
   res.json(
     await transact(async (s) => {
       const me = s.people.find((p) => p.id === uid);
-      if (!me) return { onboarding: true, demo };
+      if (!me) return { onboarding: true, partner: (s.mealOffers || []).some((offer) => !offer.deletedAt && offer.managerId === uid), demo };
       tickMeetings(s, Date.now(), demo);
       syncMealInvitations(s, Date.now(), demo);
       const currentSuburb =
@@ -332,6 +419,8 @@ app.get("/api/state", async (req, res) => {
           const {
             lat,
             lng,
+            email,
+            phone,
             textCharacters,
             socialCredits,
             radiusPassExpiresAt,
@@ -366,6 +455,8 @@ app.get("/api/state", async (req, res) => {
           const {
             lat,
             lng,
+            email,
+            phone,
             publicKey,
             textCharacters,
             socialCredits,
@@ -421,6 +512,8 @@ app.get("/api/state", async (req, res) => {
           const {
             lat,
             lng,
+            email,
+            phone,
             textCharacters,
             socialCredits,
             radiusPassExpiresAt,
@@ -451,6 +544,7 @@ app.get("/api/state", async (req, res) => {
             name: f.name,
           })),
         friends,
+        recommendedMealFriendIds: recommendedMealFriends(s, uid, friends.map((friend) => friend.id)),
         conversationIds,
         discoverable,
         publicProfiles,
@@ -481,9 +575,6 @@ app.get("/api/state", async (req, res) => {
             restaurantName: s.mealOffers?.find((o) => o.id === v.offerId)
               ?.restaurantName,
           })),
-        merchant: (s.mealOffers || []).some(
-          (o) => !o.deletedAt && o.managerId === uid,
-        ),
         meetings: (s.meetings || [])
           .filter((m) => m.a === uid || m.b === uid)
           .map((m) => ({
@@ -499,7 +590,6 @@ app.get("/api/state", async (req, res) => {
             toName: s.people.find((p) => p.id === r.to)?.name,
           })),
         demo,
-        admin: res.locals.admin,
       };
     }),
   );
@@ -510,8 +600,12 @@ app.post("/api/onboard", async (req, res) => {
     .parse(req.body);
   await transact((s) => {
     if (s.people.some((p) => p.id === res.locals.uid)) return;
+    if (s.mealOffers?.some((offer) => !offer.deletedAt && offer.managerId === res.locals.uid))
+      throw Error("Partner accounts use the partner dashboard.");
     s.people.push({
       id: res.locals.uid,
+      email: demo ? undefined : jwtIdentity(req.headers.cookie?.split(";").map((part) => part.trim()).find((part) => part.startsWith("fc_token="))?.slice(9) || "").email,
+      phone: demo ? undefined : jwtIdentity(req.headers.cookie?.split(";").map((part) => part.trim()).find((part) => part.startsWith("fc_token="))?.slice(9) || "").phone,
       name: input.name,
       initials: input.name
         .split(" ")
@@ -1085,6 +1179,7 @@ app.post("/api/report/:id", async (req, res) => {
 });
 groupRoutes(app, push);
 mealRoutes(app, push);
+partnerRoutes(app, push, origin);
 app.use("/api/admin", (req, res, next) =>
   res.locals.admin
     ? next()

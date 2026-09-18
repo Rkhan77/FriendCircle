@@ -183,6 +183,7 @@ export function publishedOffer(o: MealOffer, now = Date.now()) {
   return (
     o.active &&
     !o.deletedAt &&
+    (!o.startsAt || o.startsAt <= now) &&
     !!o.partnerConfirmedAt &&
     !!o.managerId &&
     !!o.fundedBy &&

@@ -63,6 +63,7 @@ test("API protects friendship, location, photo review, messages and blocked acco
     });
   });
   let demoCookie = "";
+  let partnerCookie = "";
   const call = async (url: string, method = "GET", body?: unknown) => {
     const r = await fetch(`http://127.0.0.1:3117/api${url}`, {
       method,
@@ -70,7 +71,7 @@ test("API protects friendship, location, photo review, messages and blocked acco
         ...(body instanceof FormData
           ? {}
           : { "Content-Type": "application/json" }),
-        ...(demoCookie ? { Cookie: demoCookie } : {}),
+        ...(demoCookie || partnerCookie ? { Cookie: [demoCookie, partnerCookie].filter(Boolean).join("; ") } : {}),
       },
       body:
         body === undefined
@@ -81,6 +82,8 @@ test("API protects friendship, location, photo review, messages and blocked acco
     });
     if (url === "/admin/login" && r.headers.get("set-cookie"))
       demoCookie = r.headers.get("set-cookie")!.split(";")[0];
+    if ((url === "/partner/login" || url === "/partner/accept") && r.headers.get("set-cookie"))
+      partnerCookie = r.headers.get("set-cookie")!.split(";")[0];
     return { status: r.status, data: await r.json() };
   };
   const edit = async (fn: (s: any) => void) => {
@@ -202,6 +205,7 @@ test("API protects friendship, location, photo review, messages and blocked acco
           area: "Test area",
           active: true,
           managerId: "you",
+          contactEmail: "test-owner@example.test",
           discountPercent: 10,
           redemptionLimit: 1,
           terms: "Test meal terms for two diners",
@@ -237,6 +241,14 @@ test("API protects friendship, location, photo review, messages and blocked acco
           },
         ];
       });
+      assert.equal((await call("/meals/merchant")).status, 403);
+      assert.equal((await call("/meals/redeem", "POST", { code: "A1B2C3D4E5F60708" })).status, 403);
+      const ownerInvite = await call("/admin/meal-offers/test-staff-offer/invite", "POST");
+      assert.equal(ownerInvite.status, 200);
+      const ownerToken = new URL(ownerInvite.data.link).searchParams.get("demo_invite");
+      assert.ok(ownerToken);
+      assert.equal((await call("/partner/accept", "POST", { token: ownerToken })).status, 200);
+      assert.deepEqual((await call("/meals/merchant")).data.offers.map((offer: any) => offer.id), ["test-staff-offer"]);
       const redeemed = await call("/meals/redeem", "POST", {
         code: "A1B2C3D4E5F60708",
       });
@@ -263,6 +275,7 @@ test("API protects friendship, location, photo review, messages and blocked acco
           .status,
         400,
       );
+      partnerCookie = "";
     },
   );
   await t.test(
@@ -811,4 +824,45 @@ test("API protects friendship, location, photo review, messages and blocked acco
       );
     },
   );
+  await t.test("Admin invites a partner; partner edits only allowed fields and schedules independent offers", async () => {
+    assert.equal((await call("/partner/overview")).status, 403);
+    assert.equal((await call("/partner/login", "POST")).status, 403);
+    const created = await call("/admin/meal-offers", "POST", {
+      restaurantName: "Demo Nook", area: "Perth (WA)", address: "Fictional street",
+      contactName: "Demo Partner", contactEmail: "partner@example.test", contactPhone: "+61400000001",
+      lat: -31.9535, lng: 115.858, redemptionLimit: 12,
+      discountPercent: 10, groupDiscountTiers: [{ diners: 2, discountPercent: 10 }, { diners: 3, discountPercent: 15 }, { diners: 4, discountPercent: 20 }],
+    });
+    assert.equal(created.status, 200);
+    const invite = await call(`/admin/meal-offers/${created.data.id}/invite`, "POST");
+    assert.equal(invite.status, 200);
+    assert.equal(invite.data.delivered, false);
+    const token = new URL(invite.data.link).searchParams.get("demo_invite");
+    assert.ok(token);
+    assert.equal((await call("/partner/accept", "POST", { token })).status, 200);
+    const own = await call("/partner/overview");
+    assert.equal(own.status, 200);
+    assert.deepEqual(own.data.restaurants.map((item: any) => item.restaurantName), ["Demo Nook"]);
+    assert.equal((await call(`/partner/restaurants/${created.data.id}/contact`, "PATCH", { contactName: "Updated Partner", contactEmail: "updated@example.test", contactPhone: "+61400000002" })).status, 200);
+    assert.equal((await call(`/partner/restaurants/draft-hj-carlisle/contact`, "PATCH", { contactName: "Wrong", contactEmail: "wrong@example.test", contactPhone: "+61400000003" })).status, 400);
+    const change = await call(`/partner/restaurants/${created.data.id}/change-requests`, "POST", { restaurantName: "Demo Nook Plus", area: "Perth (WA)", address: "Fictional lane", lat: -31.9529, lng: 115.859, reason: "The registered address needs correcting." });
+    assert.equal(change.status, 200);
+    assert.equal((await call("/admin/meal-offers")).data.find((item: any) => item.id === created.data.id).restaurantName, "Demo Nook");
+    assert.equal((await call(`/admin/restaurant-change-requests/${change.data.id}/respond`, "POST", { approve: true })).status, 200);
+    assert.equal((await call("/admin/meal-offers")).data.find((item: any) => item.id === created.data.id).restaurantName, "Demo Nook Plus");
+    const now = Date.now();
+    assert.equal((await call("/partner/restaurants/demo-circle-kitchen/offers", "POST", { startsAt: now + 3600000, validUntil: now + 7200000, redemptionLimit: 4, groupDiscountTiers: [{ diners: 2, discountPercent: 10 }, { diners: 3, discountPercent: 15 }, { diners: 4, discountPercent: 20 }] })).status, 400);
+    const future = await call(`/partner/restaurants/${created.data.id}/offers`, "POST", {
+      startsAt: now + 3600000, validUntil: now + 7200000, redemptionLimit: 4,
+      groupDiscountTiers: [{ diners: 2, discountPercent: 10 }, { diners: 3, discountPercent: 15 }, { diners: 4, discountPercent: 20 }], active: true,
+    });
+    assert.equal(future.status, 200);
+    const stored = JSON.parse(await readFile(statePath, "utf8"));
+    const scheduled = stored.mealOffers.find((item: any) => item.id === future.data.id);
+    assert.equal(scheduled.venueId, created.data.id);
+    assert.equal(scheduled.redemptionLimit, 4);
+    assert.equal(scheduled.active, false);
+    assert.ok(scheduled.startsAt > now);
+    assert.equal((await call("/partner/offers/unknown", "PATCH", { startsAt: now, validUntil: now + 3600000, redemptionLimit: 2, groupDiscountTiers: scheduled.groupDiscountTiers, active: true })).status, 400);
+  });
 });

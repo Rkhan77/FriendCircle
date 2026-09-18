@@ -164,14 +164,18 @@ export function mealRoutes(app: Express, push: () => void) {
       ),
     ),
   );
-  app.get("/api/meals/merchant", async (_, res) =>
-    res.json(
+  app.get("/api/meals/merchant", async (_, res) => {
+    const ownerId = res.locals.partnerUid;
+    if (!ownerId) return res.status(403).json({ error: "Restaurant owner access required" });
+    const assigned = await transact((s) => (s.mealOffers || []).some((offer) => !offer.deletedAt && offer.managerId === ownerId));
+    if (!assigned) return res.status(403).json({ error: "Restaurant owner access required" });
+    return res.json(
       await transact((s) => ({
         offers: (s.mealOffers || [])
           .filter(
             (o) =>
               !o.deletedAt &&
-              (o.managerId === res.locals.uid || res.locals.admin),
+              o.managerId === ownerId,
           )
           .map((o) => ({
             id: o.id,
@@ -186,10 +190,9 @@ export function mealRoutes(app: Express, push: () => void) {
             .filter(
               (v) =>
                 v.redeemedAt &&
-                (res.locals.admin ||
-                  s.mealOffers?.some(
-                    (o) => o.id === v.offerId && o.managerId === res.locals.uid,
-                  )),
+                s.mealOffers?.some(
+                  (o) => o.id === v.offerId && o.managerId === ownerId,
+                ),
             )
             .slice(-30)
             .map((v) => ({
@@ -202,10 +205,9 @@ export function mealRoutes(app: Express, push: () => void) {
             .filter(
               (g) =>
                 g.redeemedAt &&
-                (res.locals.admin ||
-                  s.mealOffers?.some(
-                    (o) => o.id === g.offerId && o.managerId === res.locals.uid,
-                  )),
+                s.mealOffers?.some(
+                  (o) => o.id === g.offerId && o.managerId === ownerId,
+                ),
             )
             .map((g) => ({
               code: g.code,
@@ -217,9 +219,11 @@ export function mealRoutes(app: Express, push: () => void) {
           .sort((a, b) => (a.redeemedAt || 0) - (b.redeemedAt || 0))
           .slice(-30),
       })),
-    ),
-  );
+    );
+  });
   app.post("/api/meals/redeem", async (req, res) => {
+    const ownerId = res.locals.partnerUid;
+    if (!ownerId) return res.status(403).json({ error: "Restaurant owner access required" });
     const { code } = z
       .object({
         code: z
@@ -237,7 +241,7 @@ export function mealRoutes(app: Express, push: () => void) {
           demo ||
           !offer ||
           !publishedOffer(offer) ||
-          (!res.locals.admin && offer.managerId !== res.locals.uid)
+          offer.managerId !== ownerId
         )
           throw Error("Group offer unavailable for this restaurant");
         return redeemMealGathering(s, code);
@@ -248,7 +252,7 @@ export function mealRoutes(app: Express, push: () => void) {
         !v ||
         !o ||
         !publishedOffer(o) ||
-        (!res.locals.admin && o.managerId !== res.locals.uid)
+        o.managerId !== ownerId
       )
         throw Error("Voucher not found for this restaurant");
       if (v.redeemedAt || v.expiresAt <= Date.now())
@@ -334,11 +338,12 @@ export function mealRoutes(app: Express, push: () => void) {
           throw Error(
             "Confirm written partner approval before publishing a discount.",
           );
-        if (!s.people.some((p) => p.id === o.managerId))
+        if (!s.people.some((p) => p.id === o.managerId) && !s.partnerInvites?.some((invite) => invite.offerId === o.id && invite.managerId === o.managerId && invite.acceptedAt))
           throw Error(
-            "Assign an existing restaurant manager Circle ID before publishing.",
+            "Assign an existing staff account or have the partner accept their invitation before publishing.",
           );
         o.partnerConfirmedAt = Date.now();
+        if (!o.venueId) o.venueApprovedAt = Date.now();
         o.active = true;
         if (!publishedOffer(o))
           throw Error(

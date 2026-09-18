@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { MealOffer } from "@/lib/model";
+import type { MealOffer, RestaurantChangeRequest } from "@/lib/model";
 
 type Count = { invitations: number; accepted: number; redeemed: number };
 type Analytics = {
@@ -123,6 +123,8 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState<Analytics>();
   const [restaurants, setRestaurants] = useState<MealOffer[]>([]);
   const [reports, setReports] = useState<CommunityReport[]>([]);
+  const [changeRequests, setChangeRequests] = useState<RestaurantChangeRequest[]>([]);
+  const [inviteLink, setInviteLink] = useState("");
   const [demo, setDemo] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [manageOpen, setManageOpen] = useState(false);
@@ -134,14 +136,16 @@ export default function AdminDashboard() {
     try {
       const session = await api<{ demo: boolean }>("/admin/session");
       setDemo(session.demo);
-      const [numbers, offers, review] = await Promise.all([
+      const [numbers, offers, review, changes] = await Promise.all([
         api<Analytics>("/admin/analytics"),
         api<MealOffer[]>("/admin/meal-offers"),
         api<{ reports: CommunityReport[] }>("/admin"),
+        api<RestaurantChangeRequest[]>("/admin/restaurant-change-requests"),
       ]);
       setAnalytics(numbers);
       setRestaurants(offers);
       setReports(review.reports);
+      setChangeRequests(changes);
       setError("");
       setEditingId((id) => id || offers[0]?.id || "");
     } catch (e) {
@@ -225,6 +229,7 @@ export default function AdminDashboard() {
             </button>
           </div>
         )}
+        {inviteLink && <div className="admin-invite-link"><label>Demo partner invitation<input value={inviteLink} readOnly onFocus={(event) => event.target.select()} /></label><button className="secondary" onClick={() => navigator.clipboard.writeText(inviteLink)}>Copy link</button></div>}
         {!analytics ? (
           <p>Loading admin reports…</p>
         ) : (
@@ -327,6 +332,16 @@ export default function AdminDashboard() {
                   </p>
                 )}
               </div>
+            </section>
+            <section className="admin-panel" aria-label="Restaurant profile change requests">
+              <div className="admin-section-head"><h2>Restaurant change requests</h2><span>{changeRequests.filter((request) => request.status === "pending").length} awaiting review</span></div>
+              {changeRequests.filter((request) => request.status === "pending").map((request) => (
+                <div className="admin-change-request" key={request.id}>
+                  <div><strong>{request.restaurantName}</strong><small>{request.area} · {request.address || "No address"}</small><p>{request.reason}</p></div>
+                  <div className="admin-buttons"><button className="secondary" disabled={busy} onClick={() => change(() => api(`/admin/restaurant-change-requests/${request.id}/respond`, { method: "POST", body: JSON.stringify({ approve: true }) }), "Restaurant details approved")}>Approve</button><button className="secondary" disabled={busy} onClick={() => change(() => api(`/admin/restaurant-change-requests/${request.id}/respond`, { method: "POST", body: JSON.stringify({ approve: false }) }), "Change request declined")}>Decline</button></div>
+                </div>
+              ))}
+              {!changeRequests.some((request) => request.status === "pending") && <p className="admin-empty">No restaurant details are awaiting review.</p>}
             </section>
             <section className="admin-two-col">
               <div className="admin-panel">
@@ -689,6 +704,18 @@ export default function AdminDashboard() {
                           <button className="primary" disabled={busy}>
                             Save offer
                           </button>
+                          {!editing.venueId && <button className="secondary" type="button" disabled={busy || !editing.contactEmail} onClick={async () => {
+                            setBusy(true);
+                            setError("");
+                            try {
+                              const result = await api<{ delivered: boolean; link?: string }>(`/admin/meal-offers/${editing.id}/invite`, { method: "POST" });
+                              setInviteLink(result.link || "");
+                              setNotice(result.delivered ? "Partner invitation emailed." : "Demo invitation ready to copy; no email was sent.");
+                              setManageOpen(false);
+                              await load();
+                            } catch (cause) { setError((cause as Error).message); }
+                            finally { setBusy(false); }
+                          }}>Send partner invite</button>}
                           {editing.active && (
                             <button
                               className="secondary"

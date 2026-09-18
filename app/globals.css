@@ -2117,6 +2117,68 @@ textarea {
   line-height: 1.7;
   margin-top: 20px;
 }
+.access-page .auth-card { max-width: 470px; }
+.access-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; font-family: "Manrope", Arial, sans-serif; font-size: 20px; }
+.access-brand .brand-symbol { margin: 0; flex: none; transform: scale(.75); transform-origin: left center; width: 31px; }
+.access-icon { width: 45px; height: 45px; display: grid; place-items: center; margin-bottom: 18px; color: #d26e5d; background: #fbede7; border-radius: 13px; }
+.access-page form, .partner-dashboard .admin-form { display: grid; gap: 15px; }
+.access-page form label { display: grid; gap: 8px; font-size: 13px; font-weight: 700; }
+.access-page input:not([type="checkbox"]) { width: 100%; padding: 12px 14px; border: 1px solid #dce4d9; border-radius: 10px; background: #fff; }
+.access-page .primary { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 43px; }
+.access-check { display: flex !important; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+.access-check input { width: 17px; height: 17px; }
+.access-text-button, .access-back { border: 0; background: none; color: #536d57; padding: 5px 0; text-align: left; font-size: 13px; font-weight: 700; }
+.access-back { display: inline-flex; align-items: center; gap: 6px; margin-top: 20px; }
+.access-demo-link { display: block; margin-top: 14px; color: #bf6655; font-weight: 700; }
+.access-footer { display: flex; align-items: center; gap: 6px; padding-top: 20px; margin-top: 20px; border-top: 1px solid #ecf0eb; color: #7b887c; font-size: 12px; }
+.access-footer a { color: #536d57; font-weight: 700; }
+.admin-invite-link { display: flex; gap: 12px; align-items: end; margin: 12px 0; padding: 12px; border: 1px solid #d7e7dc; border-radius: 12px; background: #f2f8f3; }
+.admin-invite-link label { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; }
+.admin-invite-link input { display: block; width: 100%; margin-top: 5px; padding: 8px; border: 1px solid #cdddcf; border-radius: 7px; }
+.admin-change-request { display: flex; justify-content: space-between; align-items: center; gap: 18px; border-top: 1px solid var(--line); padding: 14px 0; }
+.admin-change-request strong, .admin-change-request small { display: block; }
+.admin-change-request small { color: #748477; margin-top: 3px; }
+.admin-change-request p { margin: 6px 0 0; font-size: 13px; }
+.partner-dashboard .admin-body { max-width: 1120px; }
+.partner-venue-select { display: grid; gap: 6px; max-width: 340px; margin-bottom: 16px; font-weight: 700; }
+.partner-venue-select select { padding: 10px; border: 1px solid #dce4d9; border-radius: 9px; }
+.partner-profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.partner-profile-grid > div { padding: 15px; border: 1px solid #e4ebe3; border-radius: 12px; background: #fbfdf9; }
+.partner-profile-grid small, .partner-profile-grid strong, .partner-profile-grid span { display: block; }
+.partner-profile-grid small { color: #889a89; font-size: 10px; letter-spacing: .08em; }
+.partner-profile-grid strong { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
+.partner-profile-grid span { color: #839183; font-size: 12px; margin-top: 5px; }
+.partner-change-details { margin-top: 15px; border-top: 1px solid var(--line); padding-top: 15px; }
+.partner-change-details summary { cursor: pointer; color: #4a7252; font-weight: 700; }
+.partner-change-details form { margin-top: 16px; }
+.partner-request-status { display: block; margin-top: 12px; color: #708473; }
+.partner-offer-list { display: grid; gap: 12px; }
+.partner-offer { border: 1px solid #e4eae1; border-radius: 13px; padding: 16px; }
+.partner-offer-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.partner-offer-head strong, .partner-offer-head small { display: block; }
+.partner-offer-head small { color: #839183; margin-top: 4px; }
+.partner-offer > p { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: #728474; font-size: 12px; margin: 10px 0 0; }
+.partner-offer-form { margin-top: 18px; }
+.meal-invite-dialog { width: min(460px, calc(100% - 24px)); max-height: min(680px, 90vh); padding: 22px; border: 1px solid #e2e9df; border-radius: 18px; box-shadow: 0 24px 70px #28372b35; color: var(--ink); }
+.meal-invite-dialog .dialog-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.meal-invite-dialog .dialog-head h2 { margin: 0 0 3px; }
+.meal-invite-dialog .dialog-head small { color: #829184; }
+.meal-invite-search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; margin: 18px 0; border: 1px solid #dbe5da; border-radius: 10px; }
+.meal-invite-search svg { color: #87988b; }
+.meal-invite-search input { flex: 1; min-width: 0; border: 0; background: transparent; }
+.meal-invite-section-label { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #708874; margin: 0 0 8px; }
+.meal-invite-results { display: grid; gap: 3px; max-height: 330px; overflow-y: auto; }
+.meal-invite-row { display: flex; align-items: center; gap: 10px; position: relative; padding: 10px; border-radius: 10px; cursor: pointer; }
+.meal-invite-row:hover { background: #f5f8f4; }
+.meal-invite-row > input { width: 17px; height: 17px; accent-color: #66866b; }
+.meal-invite-row > span:not(.avatar):not(.meal-invite-divider) { display: grid; gap: 2px; }
+.meal-invite-row strong { font-size: 13px; }
+.meal-invite-row small { font-size: 10px; color: #6e9372; }
+.meal-invite-divider { position: absolute; left: 10px; right: 10px; bottom: 0; border-bottom: 1px solid #e5ebe4; }
+.meal-invite-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; margin-top: 12px; border-top: 1px solid #e5ebe4; }
+.meal-invite-footer small { color: #728473; }
+.meal-invite-footer .primary { flex: none; }
+@media (max-width: 700px) { .partner-profile-grid { grid-template-columns: 1fr; } .admin-change-request, .admin-invite-link { flex-direction: column; align-items: stretch; } }
 .error-banner {
   padding: 12px;
   background: #fcece7;

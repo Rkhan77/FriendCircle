@@ -2,11 +2,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Plus, ShieldCheck, Utensils } from "lucide-react";
 import { api } from "@/lib/api";
+import type { MealOffer } from "@/lib/model";
 
 export default function RegisterRestaurant() {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [createdId, setCreatedId] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [notice, setNotice] = useState("");
   useEffect(() => {
     api("/admin/session")
       .then(() => setReady(true))
@@ -14,6 +18,7 @@ export default function RegisterRestaurant() {
   }, []);
   async function register(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const sendInvite = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("name") === "sendInvite";
     setBusy(true);
     setError("");
     const f = new FormData(e.currentTarget);
@@ -34,13 +39,22 @@ export default function RegisterRestaurant() {
       })),
     };
     try {
-      await api("/admin/meal-offers", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-      window.location.assign("/admin");
+      let id = createdId;
+      if (!id) {
+        const offer = await api<MealOffer>("/admin/meal-offers", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        id = offer.id;
+        setCreatedId(id);
+      }
+      if (sendInvite) {
+        const result = await api<{ delivered: boolean; link?: string }>(`/admin/meal-offers/${id}/invite`, { method: "POST" });
+        setInviteLink(result.link || "");
+        setNotice(result.delivered ? "Restaurant saved. The partner invitation was emailed." : "Restaurant saved. This demo invitation is ready to copy; no email was sent.");
+      } else window.location.assign("/admin");
     } catch (e) {
-      setError((e as Error).message);
+      setError(`${createdId ? "Restaurant saved, but the invitation failed: " : ""}${(e as Error).message}`);
       setBusy(false);
     }
   }
@@ -73,6 +87,8 @@ export default function RegisterRestaurant() {
               {error}
             </div>
           )}
+          {notice && <div className="admin-notice" role="status">{notice}</div>}
+          {inviteLink && <div className="admin-invite-link"><label>Demo partner invitation link<input readOnly value={inviteLink} onFocus={(event) => event.target.select()} /></label><button className="secondary" type="button" onClick={() => navigator.clipboard.writeText(inviteLink)}>Copy link</button></div>}
           {!ready ? (
             <p>Checking admin access…</p>
           ) : (
@@ -200,9 +216,12 @@ export default function RegisterRestaurant() {
                 appearing on the map when this limit is reached.
               </p>
               <div className="admin-buttons">
-                <button className="primary" disabled={busy}>
+                <button className="primary" disabled={busy || !!createdId}>
                   <Plus size={16} />{" "}
                   {busy ? "Registering…" : "Register restaurant"}
+                </button>
+                <button className="secondary" name="sendInvite" disabled={busy || !!inviteLink}>
+                  {createdId ? "Retry partner invite" : "Register & send invite"}
                 </button>
                 <a className="secondary admin-cancel-link" href="/admin">
                   Cancel
