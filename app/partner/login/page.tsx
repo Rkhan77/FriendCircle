@@ -1,4 +1,5 @@
 "use client";
+import { appHref } from "@/lib/paths";
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Store } from "lucide-react";
 import { api } from "@/lib/api";
@@ -20,7 +21,7 @@ export default function PartnerLogin() {
     const password = event ? String(new FormData(event.currentTarget).get("password") || "") : "";
     run(async () => {
       await api("/partner/login", { method: "POST", body: JSON.stringify({ email, password }) });
-      window.location.assign("/partner");
+      window.location.assign(appHref("/partner"));
     });
   }
   function requestCode() {
@@ -35,7 +36,7 @@ export default function PartnerLogin() {
     run(async () => {
       await api("/auth/verify-code", { method: "POST", body: JSON.stringify({ email, token }) });
       await api("/partner/session");
-      window.location.assign("/partner");
+      window.location.assign(appHref("/partner"));
     });
   }
   return <main className="admin-auth"><div className="admin-auth-card">
@@ -44,6 +45,6 @@ export default function PartnerLogin() {
     {error && <div className="admin-error" role="alert">{error}</div>}
     {notice && <div className="admin-notice" role="status">{notice}</div>}
     {demo === null ? <p>Checking access…</p> : demo ? <div className="admin-demo-note">Local partner preview · only an invited restaurant owner can open this dashboard. Ask the platform admin for an invitation link.</div> : mode === "password" ? <form onSubmit={signIn}><label>Contact email<input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Password<input name="password" type="password" required autoComplete="current-password" /></label><button className="primary admin-auth-submit" disabled={busy}>Sign in <ArrowRight size={17} /></button><button className="access-text-button" type="button" disabled={busy || !email} onClick={requestCode}>Email me a sign-in code</button></form> : <form onSubmit={verify}><label>Email code<input name="token" required inputMode="numeric" autoComplete="one-time-code" /></label><button className="primary admin-auth-submit" disabled={busy}>Verify code <ArrowRight size={17} /></button><button className="access-text-button" type="button" onClick={() => setMode("password")}>Use password instead</button></form>}
-    <a href="/auth">FriendCircle member sign in</a>
+    <a href={appHref("/auth")}>FriendCircle member sign in</a>
   </div></main>;
 }

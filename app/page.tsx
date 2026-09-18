@@ -1,4 +1,5 @@
 "use client";
+import { appHref } from "@/lib/paths";
 import {
   useCallback,
   useEffect,
@@ -217,7 +218,7 @@ export default function Home() {
     try {
       const result = await api<AppState>("/state");
       if (result.partner) {
-        window.location.replace("/partner");
+        window.location.replace(appHref("/partner"));
         return;
       }
       setData(result);
@@ -318,7 +319,7 @@ export default function Home() {
   }, [refresh]);
   useEffect(() => {
     if (login && process.env.NEXT_PUBLIC_PAGES_PREVIEW !== "1")
-      window.location.replace("/auth");
+      window.location.replace(appHref("/auth"));
   }, [login]);
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_PAGES_PREVIEW === "1") return;
@@ -520,7 +521,7 @@ export default function Home() {
         <div className="auth-card">
           <Brand />
           <h1>Opening sign in…</h1>
-          <p><a href="/auth">Continue to account access</a></p>
+          <p><a href={appHref("/auth")}>Continue to account access</a></p>
         </div>
         {toast && (
           <div className="toast" role="status">

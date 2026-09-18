@@ -1,4 +1,5 @@
 "use client";
+import { appHref } from "@/lib/paths";
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Plus, ShieldCheck, Utensils } from "lucide-react";
 import { api } from "@/lib/api";
@@ -14,7 +15,7 @@ export default function RegisterRestaurant() {
   useEffect(() => {
     api("/admin/session")
       .then(() => setReady(true))
-      .catch(() => window.location.replace("/admin/login"));
+      .catch(() => window.location.replace(appHref("/admin/login")));
   }, []);
   async function register(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,7 +53,7 @@ export default function RegisterRestaurant() {
         const result = await api<{ delivered: boolean; link?: string }>(`/admin/meal-offers/${id}/invite`, { method: "POST" });
         setInviteLink(result.link || "");
         setNotice(result.delivered ? "Restaurant saved. The partner invitation was emailed." : "Restaurant saved. This demo invitation is ready to copy; no email was sent.");
-      } else window.location.assign("/admin");
+      } else window.location.assign(appHref("/admin"));
     } catch (e) {
       setError(`${createdId ? "Restaurant saved, but the invitation failed: " : ""}${(e as Error).message}`);
       setBusy(false);
@@ -64,7 +65,7 @@ export default function RegisterRestaurant() {
         <div className="admin-topbrand">
           <ShieldCheck size={24} /> friendcircle <b>admin</b>
         </div>
-        <a className="admin-back-link" href="/admin">
+        <a className="admin-back-link" href={appHref("/admin")}>
           <ArrowLeft size={16} /> Dashboard
         </a>
       </header>
@@ -223,7 +224,7 @@ export default function RegisterRestaurant() {
                 <button className="secondary" name="sendInvite" disabled={busy || !!inviteLink}>
                   {createdId ? "Retry partner invite" : "Register & send invite"}
                 </button>
-                <a className="secondary admin-cancel-link" href="/admin">
+                <a className="secondary admin-cancel-link" href={appHref("/admin")}>
                   Cancel
                 </a>
               </div>

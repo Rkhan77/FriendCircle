@@ -1,4 +1,5 @@
 "use client";
+import { appHref } from "@/lib/paths";
 import {
   useCallback,
   useEffect,
@@ -151,7 +152,7 @@ export default function AdminDashboard() {
     } catch (e) {
       const message = (e as Error).message;
       if (/sign in|admin access|Reviewer access/i.test(message))
-        window.location.replace("/admin/login");
+        window.location.replace(appHref("/admin/login"));
       else setError(message);
     }
   }, []);
@@ -188,13 +189,13 @@ export default function AdminDashboard() {
           <span className="admin-mode">
             {demo ? "LOCAL DEMO" : "LIVE ADMIN"}
           </span>
-          <a href="/">
+          <a href={appHref("/")}>
             <ArrowLeft size={16} /> App
           </a>
           <button
             onClick={async () => {
               await api("/logout", { method: "POST" });
-              window.location.assign("/admin/login");
+              window.location.assign(appHref("/admin/login"));
             }}
           >
             <LogOut size={16} /> Sign out
@@ -264,7 +265,7 @@ export default function AdminDashboard() {
                   <span>{analytics.offers.byRestaurant.length} registered</span>
                   <a
                     className="admin-register-button"
-                    href="/admin/restaurants/new"
+                    href={appHref("/admin/restaurants/new")}
                   >
                     <Plus size={15} /> Register restaurant
                   </a>

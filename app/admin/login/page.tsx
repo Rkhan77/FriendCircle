@@ -1,4 +1,5 @@
 "use client";
+import { appHref } from "@/lib/paths";
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
@@ -21,7 +22,7 @@ export default function AdminLogin() {
         ? undefined
         : JSON.stringify(Object.fromEntries(new FormData(e!.currentTarget)));
       await api("/admin/login", { method: "POST", body });
-      window.location.assign("/admin");
+      window.location.assign(appHref("/admin"));
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -91,7 +92,7 @@ export default function AdminLogin() {
             </button>
           </form>
         )}
-        <a href="/">Back to FriendCircle</a>
+        <a href={appHref("/")}>Back to FriendCircle</a>
       </div>
     </main>
   );
