@@ -9,7 +9,12 @@ import {
   Ticket,
   X,
 } from "lucide-react";
-import type { Map as LibreMap, Marker, GeoJSONSource } from "maplibre-gl";
+import {
+  Map as MapLibreMap,
+  Marker,
+  setWorkerUrl,
+  type GeoJSONSource,
+} from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   mealBrowseKm,
@@ -19,6 +24,8 @@ import {
   type MealVoucher,
   type MealGatheringView,
 } from "@/lib/model";
+
+type LibreMap = MapLibreMap;
 
 const defaultMapStyle = {
   version: 8 as const,
@@ -264,65 +271,58 @@ export default function MapView({
     if (!container.current) return;
     let disposed = false;
     let map: LibreMap | undefined;
-    import("maplibre-gl")
-      .then((libre) => {
-        if (disposed || !container.current) return;
-        libre.setWorkerUrl(
-          `${process.env.NEXT_PUBLIC_PAGES_PREVIEW === "1" ? "/FriendCircle" : ""}/maplibre/maplibre-gl-worker.mjs`,
-        );
-        map = new libre.Map({
-          container: container.current,
-          style:
-            process.env.NEXT_PUBLIC_MAP_STYLE_URL ||
-            defaultMapStyle,
-          center: [me.lng, me.lat],
-          zoom: 12,
+    try {
+      setWorkerUrl(
+        `${process.env.NEXT_PUBLIC_PAGES_PREVIEW === "1" ? "/FriendCircle" : ""}/maplibre/maplibre-gl-worker.mjs`,
+      );
+      map = new MapLibreMap({
+        container: container.current,
+        style: process.env.NEXT_PUBLIC_MAP_STYLE_URL || defaultMapStyle,
+        center: [me.lng, me.lat],
+        zoom: 12,
+      });
+      mapRef.current = map;
+      map.on("load", () => {
+        if (disposed || !map) return;
+        map.addSource("current-suburb", {
+          type: "geojson",
+          data:
+            mode === "restaurants" ? catchUpRadiusData(me) : suburbData(suburb),
         });
-        mapRef.current = map;
-        map.on("load", () => {
-          if (disposed || !map) return;
-          map.addSource("current-suburb", {
-            type: "geojson",
-            data:
-              mode === "restaurants"
-                ? catchUpRadiusData(me)
-                : suburbData(suburb),
-          });
-          map.addLayer({
-            id: "current-suburb-fill",
-            type: "fill",
-            source: "current-suburb",
-            paint: {
-              "fill-color": mode === "restaurants" ? "#a7d8cf" : "#eaa6c9",
-              "fill-opacity": 0.18,
-            },
-          });
-          map.addLayer({
-            id: "current-suburb-outline",
-            type: "line",
-            source: "current-suburb",
-            paint: {
-              "line-color": mode === "restaurants" ? "#67afa7" : "#d985b2",
-              "line-width": 3,
-              "line-opacity": 0.9,
-            },
-          });
-          setError("");
-          setReady(true);
+        map.addLayer({
+          id: "current-suburb-fill",
+          type: "fill",
+          source: "current-suburb",
+          paint: {
+            "fill-color": mode === "restaurants" ? "#a7d8cf" : "#eaa6c9",
+            "fill-opacity": 0.18,
+          },
         });
-        map.on("error", (event) => {
-          if (!disposed && !map?.isStyleLoaded())
-            setError(
-              `Map tiles could not load: ${String(event.error?.message || "check the map style URL")}`,
-            );
+        map.addLayer({
+          id: "current-suburb-outline",
+          type: "line",
+          source: "current-suburb",
+          paint: {
+            "line-color": mode === "restaurants" ? "#67afa7" : "#d985b2",
+            "line-width": 3,
+            "line-opacity": 0.9,
+          },
         });
-      })
-      .catch(() => {
-        if (!disposed)
+        setError("");
+        setReady(true);
+      });
+      map.on("error", (event) => {
+        if (!disposed && !map?.isStyleLoaded())
           setError(
-            "MapLibre could not load. Your friend list is still available.",
+            `Map tiles could not load: ${String(event.error?.message || "check the map style URL")}`,
           );
       });
+    } catch {
+      if (!disposed)
+        setError(
+          "MapLibre could not start in this browser. Please refresh the page.",
+        );
+    }
     return () => {
       disposed = true;
       mapRef.current = null;
@@ -377,58 +377,52 @@ export default function MapView({
   }, [ready, suburb?.code, me.lng, me.lat, mode]);
   useEffect(() => {
     if (!ready || !mapRef.current) return;
-    let disposed = false;
-    import("maplibre-gl").then(({ Marker }) => {
-      if (disposed || !mapRef.current) return;
-      friendFlag.current?.remove();
-      const count =
-        mode === "friends"
-          ? friends.filter((friend) => friend.nearby).length
-          : 0;
-      const point = suburbFlagPoint(suburb);
-      if (count && point) {
-        const flag = document.createElement("button");
-        flag.type = "button";
-        flag.className = "suburb-friends-flag";
-        flag.setAttribute("aria-controls", "suburb-friends-card");
-        flag.setAttribute(
-          "aria-label",
-          `Show ${count} ${count === 1 ? "friend" : "friends"} in ${suburb!.name}; flag marks the suburb, not their location`,
-        );
-        const icon = document.createElement("span");
-        icon.className = "suburb-flag-icon";
-        icon.setAttribute("aria-hidden", "true");
-        icon.textContent = "⚑";
-        const label = document.createElement("span");
-        label.textContent = `${count} ${count === 1 ? "friend" : "friends"} in this suburb`;
-        flag.append(icon, label);
-        flag.addEventListener("click", () =>
-          setFlagOpen((open) => {
-            if (!open)
-              mapRef.current?.easeTo({
-                center: point,
-                offset: [0, 70],
-                duration: 250,
-              });
-            return !open;
-          }),
-        );
-        friendFlag.current = new Marker({ element: flag, anchor: "bottom" })
-          .setLngLat(point)
-          .addTo(mapRef.current);
-      }
-      selfMarker.current?.remove();
-      if (mode === "friends") {
-        const self = document.createElement("div");
-        self.className = "you-pin maplibre-you-pin";
-        self.innerHTML = "<span></span><b>You</b>";
-        selfMarker.current = new Marker({ element: self, anchor: "center" })
-          .setLngLat([me.lng, me.lat])
-          .addTo(mapRef.current);
-      }
-    });
+    if (!mapRef.current) return;
+    friendFlag.current?.remove();
+    const count =
+      mode === "friends" ? friends.filter((friend) => friend.nearby).length : 0;
+    const point = suburbFlagPoint(suburb);
+    if (count && point) {
+      const flag = document.createElement("button");
+      flag.type = "button";
+      flag.className = "suburb-friends-flag";
+      flag.setAttribute("aria-controls", "suburb-friends-card");
+      flag.setAttribute(
+        "aria-label",
+        `Show ${count} ${count === 1 ? "friend" : "friends"} in ${suburb!.name}; flag marks the suburb, not their location`,
+      );
+      const icon = document.createElement("span");
+      icon.className = "suburb-flag-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = "⚑";
+      const label = document.createElement("span");
+      label.textContent = `${count} ${count === 1 ? "friend" : "friends"} in this suburb`;
+      flag.append(icon, label);
+      flag.addEventListener("click", () =>
+        setFlagOpen((open) => {
+          if (!open)
+            mapRef.current?.easeTo({
+              center: point,
+              offset: [0, 70],
+              duration: 250,
+            });
+          return !open;
+        }),
+      );
+      friendFlag.current = new Marker({ element: flag, anchor: "bottom" })
+        .setLngLat(point)
+        .addTo(mapRef.current);
+    }
+    selfMarker.current?.remove();
+    if (mode === "friends") {
+      const self = document.createElement("div");
+      self.className = "you-pin maplibre-you-pin";
+      self.innerHTML = "<span></span><b>You</b>";
+      selfMarker.current = new Marker({ element: self, anchor: "center" })
+        .setLngLat([me.lng, me.lat])
+        .addTo(mapRef.current);
+    }
     return () => {
-      disposed = true;
       friendFlag.current?.remove();
       selfMarker.current?.remove();
     };
@@ -483,37 +477,33 @@ export default function MapView({
   }, [ready, visibleRestaurantId, openRestaurantId]);
   useEffect(() => {
     if (!ready || !mapRef.current) return;
-    let disposed = false;
-    import("maplibre-gl").then(({ Marker }) => {
-      if (disposed || !mapRef.current) return;
-      offerMarkers.current.forEach((marker) => marker.remove());
-      offerMarkers.current = offers
-        .filter(
-          (o) =>
-            o.id === visibleRestaurantId &&
-            o.lat !== undefined &&
-            o.lng !== undefined,
-        )
-        .map((offer) => {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "restaurant-map-pin maplibre-restaurant-pin";
-          button.setAttribute(
-            "aria-label",
-            `Open meal offer at ${offer.restaurantName}`,
-          );
-          button.innerHTML =
-            '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-2-5H5L3 9Z"/><path d="M3 9v2a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0v-2"/><path d="M5 14v6h14v-6M10 20v-5h4v5"/></svg>';
-          button.addEventListener("click", () =>
-            onSelectRestaurant(offer.id, true),
-          );
-          return new Marker({ element: button, anchor: "center" })
-            .setLngLat([offer.lng!, offer.lat!])
-            .addTo(mapRef.current!);
-        });
-    });
+    if (!mapRef.current) return;
+    offerMarkers.current.forEach((marker) => marker.remove());
+    offerMarkers.current = offers
+      .filter(
+        (o) =>
+          o.id === visibleRestaurantId &&
+          o.lat !== undefined &&
+          o.lng !== undefined,
+      )
+      .map((offer) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "restaurant-map-pin maplibre-restaurant-pin";
+        button.setAttribute(
+          "aria-label",
+          `Open meal offer at ${offer.restaurantName}`,
+        );
+        button.innerHTML =
+          '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-2-5H5L3 9Z"/><path d="M3 9v2a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0v-2"/><path d="M5 14v6h14v-6M10 20v-5h4v5"/></svg>';
+        button.addEventListener("click", () =>
+          onSelectRestaurant(offer.id, true),
+        );
+        return new Marker({ element: button, anchor: "center" })
+          .setLngLat([offer.lng!, offer.lat!])
+          .addTo(mapRef.current!);
+      });
     return () => {
-      disposed = true;
       offerMarkers.current.forEach((marker) => marker.remove());
     };
   }, [ready, offers, visibleRestaurantId]);
