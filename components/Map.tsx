@@ -20,6 +20,32 @@ import {
   type MealGatheringView,
 } from "@/lib/model";
 
+const defaultMapStyle = {
+  version: 8 as const,
+  sources: {
+    "openstreetmap-raster": {
+      type: "raster" as const,
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+      maxzoom: 19,
+    },
+  },
+  layers: [
+    {
+      id: "openstreetmap-raster",
+      type: "raster" as const,
+      source: "openstreetmap-raster",
+      minzoom: 0,
+      maxzoom: 20,
+      paint: {
+        "raster-opacity": 0.82,
+        "raster-saturation": -0.22,
+      },
+    },
+  ],
+};
+
 export type Friend = Omit<Person, "lat" | "lng"> & {
   nearby: boolean;
   connected?: boolean;
@@ -248,7 +274,7 @@ export default function MapView({
           container: container.current,
           style:
             process.env.NEXT_PUBLIC_MAP_STYLE_URL ||
-            "https://tiles.openfreemap.org/styles/liberty",
+            defaultMapStyle,
           center: [me.lng, me.lat],
           zoom: 12,
         });
@@ -281,6 +307,7 @@ export default function MapView({
               "line-opacity": 0.9,
             },
           });
+          setError("");
           setReady(true);
         });
         map.on("error", (event) => {
