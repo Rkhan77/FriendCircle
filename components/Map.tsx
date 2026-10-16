@@ -225,7 +225,6 @@ export default function MapView({
   const friendFlag = useRef<Marker | null>(null);
   const offerMarkers = useRef<Marker[]>([]);
   const selfMarker = useRef<Marker | null>(null);
-  const lastSuburbCode = useRef(suburb?.code || null);
   const lastMode = useRef(mode);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -358,6 +357,24 @@ export default function MapView({
   }, [ready, mode]);
   useEffect(() => {
     if (!ready || !mapRef.current) return;
+    const map = mapRef.current;
+    const keepUserCentered = () => {
+      const center = map.getCenter();
+      if (
+        Math.abs(center.lng - me.lng) < 0.000001 &&
+        Math.abs(center.lat - me.lat) < 0.000001
+      )
+        return;
+      map.easeTo({ center: [me.lng, me.lat], duration: 250 });
+    };
+    keepUserCentered();
+    map.on("moveend", keepUserCentered);
+    return () => {
+      map.off("moveend", keepUserCentered);
+    };
+  }, [ready, me.lat, me.lng]);
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
     if (mode === "restaurants") fitCatchUpRadius(mapRef.current, me);
     else if (lastMode.current === "restaurants")
       mapRef.current.easeTo({
@@ -367,14 +384,6 @@ export default function MapView({
       });
     lastMode.current = mode;
   }, [ready, mode, me.lat, me.lng]);
-  useEffect(() => {
-    if (!ready || !mapRef.current) return;
-    const code = suburb?.code || null;
-    if (lastSuburbCode.current === code) return;
-    lastSuburbCode.current = code;
-    if (mode === "friends")
-      mapRef.current.easeTo({ center: [me.lng, me.lat], duration: 600 });
-  }, [ready, suburb?.code, me.lng, me.lat, mode]);
   useEffect(() => {
     if (!ready || !mapRef.current) return;
     if (!mapRef.current) return;
@@ -398,17 +407,7 @@ export default function MapView({
       const label = document.createElement("span");
       label.textContent = `${count} ${count === 1 ? "friend" : "friends"} in this suburb`;
       flag.append(icon, label);
-      flag.addEventListener("click", () =>
-        setFlagOpen((open) => {
-          if (!open)
-            mapRef.current?.easeTo({
-              center: point,
-              offset: [0, 70],
-              duration: 250,
-            });
-          return !open;
-        }),
-      );
+      flag.addEventListener("click", () => setFlagOpen((open) => !open));
       friendFlag.current = new Marker({ element: flag, anchor: "bottom" })
         .setLngLat(point)
         .addTo(mapRef.current);
@@ -458,23 +457,6 @@ export default function MapView({
       map.off("resize", update);
     };
   }, [flagOpen, ready, friends, suburb]);
-  useEffect(() => {
-    if (!ready || !visibleRestaurantId || !mapRef.current) return;
-    const offer = offers.find((o) => o.id === visibleRestaurantId);
-    if (offer?.lat !== undefined && offer.lng !== undefined) {
-      const map = mapRef.current;
-      map.easeTo({
-        center: [offer.lng, offer.lat],
-        offset: [
-          0,
-          openRestaurantId === offer.id
-            ? Math.min(130, map.getContainer().clientHeight * 0.24)
-            : 0,
-        ],
-        duration: 350,
-      });
-    }
-  }, [ready, visibleRestaurantId, openRestaurantId]);
   useEffect(() => {
     if (!ready || !mapRef.current) return;
     if (!mapRef.current) return;
@@ -968,7 +950,7 @@ export default function MapView({
         </button>
       </div>
       <div className="map-bottom-note">
-        Drag to explore · scroll to zoom ·{" "}
+        Drag to look around · the map recenters on you ·{" "}
         {mode === "restaurants"
           ? `${mealBrowseKm} km radius highlighted · select a restaurant to see its offer`
           : suburb
